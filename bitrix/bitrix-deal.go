@@ -1,4 +1,4 @@
-package main
+package bitrix
 
 import (
 	"encoding/json"
@@ -8,8 +8,8 @@ import (
 	"strings"
 )
 
-func get_deal_id_by_name(deals Deal, deal_name string) (int, error) {
-	for _, deal := range deals.Body {
+func Get_deal_id_by_name(d Deal, deal_name string) (int, error) {
+	for _, deal := range d.Body {
 		if strings.Contains(deal.Title, deal_name) {
 			return strconv.Atoi(deal.Id)
 		}
@@ -17,14 +17,14 @@ func get_deal_id_by_name(deals Deal, deal_name string) (int, error) {
 	return 0, errors.New("No deal found by " + deal_name)
 }
 
-func get_deals() (deals Deal) {
+func Get_deals() (d Deal) {
 	values := map[string][]string{"select": {"ID", "TITLE"}}
 	jsonData, _ := json.Marshal(values)
-	response, err := exec_api(api_url+"/crm.deal.list/", jsonData) //TODO: handle error
+	response, err := Exec_api(api_url+"/crm.deal.list/", jsonData) //TODO: handle error
 	if err != nil {
 		log.Println(string(response))
 	}
-	err = json.Unmarshal(response, &deals)
+	err = json.Unmarshal(response, &d)
 	if err != nil {
 		log.Println(err.Error())
 	}

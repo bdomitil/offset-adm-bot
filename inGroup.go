@@ -2,9 +2,24 @@ package main
 
 import (
 	"fmt"
+	"offset-adm-bot/bitrix"
+	"strconv"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
+
+func createTask(bit *bitrix.Profile, data reportForm) error {
+	fmt.Printf("%v\n", bit)
+	deals := bitrix.Get_deals()
+	id, _ := bitrix.Get_deal_id_by_name(deals, data.offID)
+	var newTask bitrix.Task
+	newTask.Body.Deal_id = strconv.Itoa(id)
+	newTask.Body.Description = data.comments
+	newTask.Body.Responible_id = bit.Body.Id
+	newTask.Body.Title = "Задача созданная " + bit.Body.Name
+	err := bitrix.Task_add(&newTask)
+	return err
+}
 
 func manageGroupChat(update *tgbotapi.Update) (reply tgbotapi.MessageConfig, err error) {
 
@@ -43,14 +58,7 @@ func manageGroupChat(update *tgbotapi.Update) (reply tgbotapi.MessageConfig, err
 			reply.Text = genReply(update)
 			if openReports[update.Message.Chat.ID].isFilled {
 				reply.ReplyMarkup = tgbotapi.NewReplyKeyboard(genReplyKeyboard("/report"))
-				deals := get_deals()
-				id, _ := get_deal_id_by_name(deals, openReports[update.Message.Chat.ID].description.offID)
-				for _, dealx := range deals.Body {
-					fmt.Printf("title = %s\nid = %s\n", dealx.Title, dealx.Id)
-				}
-				fmt.Printf("searched id = %d, name = %s\n", id, openReports[update.Message.Chat.ID].description.offID)
-				data := openReports[update.Message.Chat.ID].description
-				add_task_to_deal(id, &data)
+				createTask(&BitrixU, openReports[update.Message.Chat.ID].description)
 			}
 		} else {
 			reply.ChatID = 0

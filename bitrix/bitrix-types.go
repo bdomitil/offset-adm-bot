@@ -1,4 +1,4 @@
-package main
+package bitrix
 
 type Deal_body struct {
 	Id    string `json:"ID"`
@@ -18,9 +18,19 @@ type Task_body struct {
 }
 type Task struct {
 	Body Task_body `json:"fields"`
-	// Description string    `json:"DESCRIPTION"`
 }
 
 type Bitrix struct {
 	Deal Deal
+}
+
+type Profile_body struct {
+	Id        string `json:"ID"`
+	Name      string `json:"NAME"`
+	Last_name string `json:"LAST_NAME"`
+	IsAdmin   bool   `json:"ADMIN"`
+}
+
+type Profile struct {
+	Body Profile_body `json:"result"`
 }
