@@ -26,6 +26,7 @@ func main() {
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
 	updates := bot.GetUpdatesChan(u)
+
 	for update := range updates {
 
 		if update.Message == nil {
@@ -34,8 +35,11 @@ func main() {
 		var newMsg tgbotapi.MessageConfig
 		if isChat, _ := isOffsetChat(update.Message.Chat.Title); update.Message.Chat.IsGroup() && isChat {
 			newMsg, err = manageGroupChat(&update)
+			if err != nil {
+				sendAdminErroMsg(bot, err.Error())
+			}
 		} else if update.Message.Chat.IsPrivate() {
-			newMsg.Text = "хочешь приват?"
+			newMsg.Text = "я пока еще не умею общаться так, но очень скоро научусь! дождись меня"
 			newMsg.ChatID = update.Message.Chat.ID
 		}
 		if err != nil {
@@ -44,8 +48,3 @@ func main() {
 		bot.Send(newMsg)
 	}
 }
-
-// func main() {
-
-// 	api_test()
-// }

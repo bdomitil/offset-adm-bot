@@ -1,7 +1,10 @@
 package main
 
 import (
+	"log"
+	"os"
 	"regexp"
+	"strconv"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
@@ -26,4 +29,15 @@ func genReplyKeyboard(buttons ...string) []tgbotapi.KeyboardButton {
 		keyboards = append(keyboards, tgbotapi.NewKeyboardButton(button))
 	}
 	return keyboards
+}
+
+func sendAdminErroMsg(bot *tgbotapi.BotAPI, text string) {
+	admin_id, err := strconv.Atoi(os.Getenv("admin_"))
+	if err != nil || admin_id == 0 {
+		log.Fatalf("Admin telegram chat id is false")
+	}
+	var newMsg tgbotapi.MessageConfig
+	newMsg.ChatID = int64(admin_id)
+	newMsg.Text = text
+	bot.Send(newMsg)
 }

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"offset-adm-bot/bitrix"
 	"strconv"
 
@@ -9,7 +8,6 @@ import (
 )
 
 func createTask(bit *bitrix.Profile, data reportForm) error {
-	fmt.Printf("%v\n", bit)
 	deals := bitrix.Get_deals()
 	id, _ := bitrix.Get_deal_id_by_name(deals, data.offID)
 	var newTask bitrix.Task
@@ -49,21 +47,18 @@ func manageGroupChat(update *tgbotapi.Update) (reply tgbotapi.MessageConfig, err
 		}
 	default:
 		if hasOpenReport(update) {
-
-			// report := openReports[update.Message.Chat.ID]
-			// for _, s := range openReports[update.Message.Chat.ID].description {
-			// 	fmt.Printf("chat id = %d , desc = %s\n", report.channel_id, s)
-			// }
 			fillReport(update)
 			reply.Text = genReply(update)
 			if openReports[update.Message.Chat.ID].isFilled {
 				reply.ReplyMarkup = tgbotapi.NewReplyKeyboard(genReplyKeyboard("/report"))
-				createTask(&BitrixU, openReports[update.Message.Chat.ID].description)
+				if err = createTask(&BitrixU, openReports[update.Message.Chat.ID].description); err != nil {
+					reply.Text = "Ой((   Что-то пошло не так\nЯ уже передал сообщения администраторам\nМожете попробовать еще раз"
+				}
 			}
 		} else {
 			reply.ChatID = 0
 		}
 	}
 
-	return reply, nil
+	return reply, err
 }
