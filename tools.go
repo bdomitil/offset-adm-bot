@@ -32,7 +32,7 @@ func genReplyKeyboard(buttons ...string) []tgbotapi.KeyboardButton {
 }
 
 func sendAdminErroMsg(bot *tgbotapi.BotAPI, text string) {
-	admin_id, err := strconv.Atoi(os.Getenv("admin_"))
+	admin_id, err := strconv.Atoi(os.Getenv("ADMIN_ID"))
 	if err != nil || admin_id == 0 {
 		log.Fatalf("Admin telegram chat id is false")
 	}
