@@ -18,7 +18,7 @@ func main() {
 	if err != nil {
 		panic("Unable to start Telegram Bot, check if TTOKEN is available")
 	}
-	bitrixU, err := bitrix.Init(os.Getenv("bitrix_api_url"))
+	bitrixU, err := bitrix.Init(os.Getenv("BITRIX_TOKEN"))
 	if err != nil {
 		panic("Unable to connect Bitrix Api : " + err.Error())
 	}

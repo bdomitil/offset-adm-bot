@@ -1,10 +1,10 @@
 package main
 
 import (
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+
 	"offset-adm-bot/bitrix"
 	"strconv"
-
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 func createTask(bit *bitrix.Profile, data reportForm) error {
