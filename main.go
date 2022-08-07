@@ -28,12 +28,11 @@ func main() {
 	updates := bot.GetUpdatesChan(u)
 
 	for update := range updates {
-
 		if update.Message == nil {
 			continue
 		}
 		var newMsg tgbotapi.MessageConfig
-		if isChat, _ := isOffsetChat(update.Message.Chat.Title); update.Message.Chat.IsGroup() && isChat {
+		if isChat := isOffsetChat(update.Message.Chat.Title); update.Message.Chat.IsGroup() && isChat {
 			newMsg, err = manageGroupChat(&update)
 			if err != nil {
 				sendAdminErroMsg(bot, err.Error())

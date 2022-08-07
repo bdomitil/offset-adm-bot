@@ -15,7 +15,7 @@ var replies = [...]string{
 }
 
 type reportForm struct {
-	offID        string
+	offID        []string
 	comments     string
 	moves_to_fix string
 	size         uint8
@@ -74,7 +74,6 @@ func openReport(update *tgbotapi.Update) (newR report) {
 	newR.openMsgID = update.Message.MessageID
 	newR.description = reportForm{}
 	newR.description.size = 1
-	_, OffId := isOffsetChat(newR.channel_name)
-	newR.description.offID = OffId
+	newR.description.offID = getOffsets(newR.channel_name)
 	return newR
 }
