@@ -1,64 +1,76 @@
 package main
 
 import (
+	"encoding/json"
+	"fmt"
+
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 
 	"offset-adm-bot/bitrix"
 	"strconv"
 )
 
+var reportButtons = map[string]string{
+	"open":   "Создать обращение",
+	"delete": "Удалить обращение",
+	"finish": "Завершить обращение",
+	"close":  "Закрыть обращение"}
+
 func createTask(bit *bitrix.Profile, data reportForm) error {
 	deals := bitrix.Get_deals()
-	id, _ := bitrix.Get_deal_id_by_name(deals, data.offID)
+	id, _ := bitrix.Get_deal_id_by_name(deals, data.offID[0]) //TODO: fix it
 	var newTask bitrix.Task
-	newTask.Body.Deal_id = strconv.Itoa(id)
-	newTask.Body.Description = data.comments
-	newTask.Body.Responible_id = bit.Body.Id
-	newTask.Body.Title = "Задача созданная " + bit.Body.Name
+	newTask.Fields.Deal_id = fmt.Sprintf("D_%s", strconv.Itoa(id))
+	newTask.Fields.Description = data.comments
+	newTask.Fields.Responible_id = bit.Result.Id
+	newTask.Fields.Title = fmt.Sprintf("Задача созданная  %s %s", bit.Result.Name, bit.Result.Last_name)
 	err := bitrix.Task_add(&newTask)
 	return err
 }
 
-func manageGroupChat(update *tgbotapi.Update) (reply tgbotapi.MessageConfig, err error) {
+func manageGroupChat(update *tgbotapi.Update, bot *tgbotapi.BotAPI) (reply tgbotapi.MessageConfig, err error) {
 
-	if hasOpenReport(update) && openReports[update.Message.Chat.ID].creator != update.Message.From.ID { //return and not allow to any other reports ultil previous deletes
+	if repList.isOpen(update) && repList.getReport(update.FromChat().ID).creator != update.SentFrom().ID { //return and not allow to any other reports ultil previous deletes
 		return
 	}
-
-	reply = tgbotapi.NewMessage(update.Message.Chat.ID, "")
-	switch update.Message.Text {
-	case "/report":
-		if hasOpenReport(update) {
-			reply.Text = "Пожалуйста завершите предыдущую заявку или нажмите /close_report"
-		} else {
-			openReports[update.Message.Chat.ID] = openReport(update)
-			reply.Text = genReply(update)
-			reply.ReplyMarkup = tgbotapi.NewOneTimeReplyKeyboard(genReplyKeyboard("/close_report"))
-		}
-	case "/close_report":
-		if hasOpenReport(update) {
-			reply.Text = "Заявка успешко закрыта!"
-			reply.ReplyToMessageID = openReports[update.Message.Chat.ID].openMsgID
-			reply.ReplyMarkup = tgbotapi.NewReplyKeyboard(genReplyKeyboard("/report"))
-			delete(openReports, update.Message.Chat.ID)
-		} else {
-			reply.Text = "Нет открытых заявок, /report чтоб открыть новую заявку"
-			reply.ReplyMarkup = tgbotapi.NewReplyKeyboard(genReplyKeyboard("/report"))
-		}
-	default:
-		if hasOpenReport(update) {
-			fillReport(update)
-			reply.Text = genReply(update)
-			if openReports[update.Message.Chat.ID].isFilled {
-				reply.ReplyMarkup = tgbotapi.NewReplyKeyboard(genReplyKeyboard("/report"))
-				if err = createTask(&BitrixU, openReports[update.Message.Chat.ID].description); err != nil {
-					reply.Text = "Ой((   Что-то пошло не так\nЯ уже передал сообщения администраторам\nМожете попробовать еще раз"
+	reply = tgbotapi.NewMessage(update.FromChat().ID, "")
+	if update.Message != nil { //Client sent message
+		switch update.Message.Text {
+		case reportButtons["open"]:
+			if repList.isOpen(update) {
+				reply = genReplyForMsg(update, 101)
+			} else {
+				repList.putReport(update.Message.Chat.ID, newReport(update)) //creating new report
+				reply = genReplyForMsg(update, 255)
+			}
+		case reportButtons["close"]:
+			if repList.isOpen(update) {
+				reply = genReplyForMsg(update, 200)
+			} else {
+				reply = genReplyForMsg(update, 102)
+			}
+		default:
+			{
+				if repList.isOpen(update) {
+					reply = genReplyForMsg(update, 255)
+				} else {
+					reply.ChatID = 0
 				}
 			}
-		} else {
-			reply.ChatID = 0
+		}
+	} else if update.CallbackQuery != nil { //Client sent callback
+		var callback callbackJSON
+		err := json.Unmarshal([]byte(update.CallbackData()), &callback)
+		if err != nil {
+			return reply, fmt.Errorf("unknown callback : %s", update.CallbackData())
+		}
+		update.CallbackQuery.Data = callback.Info
+		switch callback.Type {
+		case "offsetID":
+			{
+				reply = genReplyForCallback(update, 255, bot)
+			}
 		}
 	}
-
 	return reply, err
 }

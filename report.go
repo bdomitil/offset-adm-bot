@@ -6,19 +6,14 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-var replies = [...]string{
-	"",
-	"Здраствуйте, меня зовут Оффсетик, я бот техподдержки компании OFFSET, сейчас разберемся что у вас случилось\n\n" +
-		"Опишите пожалуйста проблему польность, чем больше деталей тем лучше!",
-	"Напишите были ли предприняты какие-то действия самостоятельно, если да то, что к чему это привело",
-	"Ваша заявка успешно принята, начинаем решать вопрос",
+type reportList struct {
+	store map[int64]report
 }
 
 type reportForm struct {
-	offID        string
-	comments     string
-	moves_to_fix string
-	size         uint8
+	offID    []string
+	comments string
+	status   uint8
 	//TODO: add field for media data
 }
 
@@ -32,49 +27,64 @@ type report struct {
 	openMsgID     int
 }
 
-func fillReport(update *tgbotapi.Update) {
+var replies = map[string]string{
+	"hello_msg": "Здраствуйте, меня зовут Оффсетик, я бот техподдержки компании OFFSET\n\n", //Приветсвенное сообщение
+	"get_info_msg": `Cейчас разберемся что у вас случилось 
+	Опишите пожалуйста проблему максимально подробно, чем больше деталей тем лучше!
+	
+	При описании проблемы ответьте на следующие вопросы 
+	
+	1) Когда возникла проблема и в следствии чего ? 
+	2) Какие действия были предприняты ? 
+	3) По возможности направьте файл - при распечатке которого возникла проблема`, //Сообщение о сборе информации
 
-	var rep report = openReports[update.Message.Chat.ID]
-	switch rep.description.size {
-	case 1:
-		rep.description.comments = update.Message.Text
-	case 2:
-		rep.description.moves_to_fix = update.Message.Text
-		fallthrough
-		//TODO: case 3 : rep.description.media_facts = somemedia
-	case 3:
-		rep.isFilled = true
-	}
-	rep.description.size++
-	openReports[update.Message.Chat.ID] = rep
+	"request_filled_msg": "Ваша заявка успешно принята, начинаем решать вопрос", //Сообщение о принятии заявки
 }
 
-func genReply(update *tgbotapi.Update) (reply string) {
-	var rep report = openReports[update.Message.Chat.ID]
-
-	switch rep.description.size {
-	case 1:
-		reply = replies[1]
-	case 2:
-		reply = replies[2]
-	case 3:
-		reply = replies[3]
-	default:
-		reply = "Ошибка при попытке генерации ответа"
-	}
-	return reply
+func (rep *reportList) getReport(id int64) (r report) {
+	r = rep.store[id]
+	return
 }
 
-func openReport(update *tgbotapi.Update) (newR report) {
+func (rep *reportList) findReport(id int64) (r report, ok bool) {
+	r, ok = rep.store[id]
+	return
+}
+
+func (rep *reportList) getStore() (store *map[int64]report) {
+	return &rep.store
+}
+
+func (rep *reportList) putReport(id int64, r report) {
+	rep.store[id] = r
+}
+
+func (rep *reportList) isOpen(update *tgbotapi.Update) bool {
+	ok := false
+	_, ok = rep.store[update.FromChat().ID]
+	return ok
+}
+
+func (rep *reportList) close(id int64) {
+	if _, ok := rep.store[id]; ok {
+		delete(*rep.getStore(), id)
+	}
+}
+
+func newReport(update *tgbotapi.Update) (newR report) {
+	newR = report{}
 	newR.isFilled = false
-	newR.creator = update.Message.From.ID
+	newR.creator = update.SentFrom().ID
 	newR.creation_time = time.Now()
-	newR.channel_name = update.Message.Chat.Title
-	newR.channel_id = update.Message.Chat.ID
+	newR.channel_name = update.FromChat().Title
+	newR.channel_id = update.FromChat().ID
 	newR.openMsgID = update.Message.MessageID
 	newR.description = reportForm{}
-	newR.description.size = 1
-	_, OffId := isOffsetChat(newR.channel_name)
-	newR.description.offID = OffId
+	newR.description.offID = getOffsets(newR.channel_name)
+	if len(newR.description.offID) > 1 {
+		newR.description.status = 4
+	} else {
+		newR.description.status = 2
+	}
 	return newR
 }
