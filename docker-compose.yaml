@@ -1,0 +1,38 @@
+version: '3.1'
+
+services:
+  postgres:
+    image: postgres
+    restart: always
+    environment:
+      - POSTGRES_PASSWORD=123sdf4s
+    networks:
+      - net1
+    ports:
+      - "5432:5432"
+
+  tg_bot:
+    container_name: tg_bot
+    build: ./
+    environment:
+      - BITRIX_TOKEN=https://ofset-24.bitrix24.ru/rest/16/j7qq1w0n4pf0tju3
+      - TTOKEN=5572941191:AAHpyZ2J2rZYzv7tGy2ej4sUQerBNXohVRM
+    depends_on:
+      - postgres
+    restart: always
+    networks:
+      - net1
+
+
+networks:
+    net1:
+      driver: bridge
+
+volumes:
+  postgres_vol:
+    name: postgres_vol
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/postgres_data

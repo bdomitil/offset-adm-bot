@@ -9,10 +9,11 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-var openReports = map[int64]report{}
+var repList = reportList{store: map[int64]report{}}
 var BitrixU bitrix.Profile
 
 func main() {
+
 	fmt.Println("Bot started")
 	bot, err := tgbotapi.NewBotAPI(os.Getenv("TTOKEN"))
 	if err != nil {
@@ -28,22 +29,24 @@ func main() {
 	updates := bot.GetUpdatesChan(u)
 
 	for update := range updates {
-		if update.Message == nil {
+		if update.Message == nil && update.CallbackQuery == nil {
 			continue
 		}
 		var newMsg tgbotapi.MessageConfig
-		if isChat := isOffsetChat(update.Message.Chat.Title); update.Message.Chat.IsGroup() && isChat {
-			newMsg, err = manageGroupChat(&update)
+
+		if isChat := isOffsetChat(update.FromChat().Title); update.FromChat().IsGroup() && isChat {
+			newMsg, err = manageGroupChat(&update, bot)
 			if err != nil {
 				sendAdminErroMsg(bot, err.Error())
+				continue
 			}
-		} else if update.Message.Chat.IsPrivate() {
-			newMsg.Text = "я пока еще не умею общаться так, но очень скоро научусь! дождись меня"
+		} else if update.FromChat().IsPrivate() {
+			newMsg.Text = "Я пока еще не умею общаться так, но очень скоро научусь! дождись меня"
 			newMsg.ChatID = update.Message.Chat.ID
 		}
+		_, err := bot.Send(newMsg)
 		if err != nil {
 			log.Println(err.Error())
 		}
-		bot.Send(newMsg)
 	}
 }
