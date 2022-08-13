@@ -9,7 +9,7 @@ import (
 )
 
 func Get_deal_id_by_name(d Deal, deal_name string) (int, error) {
-	for _, deal := range d.Body {
+	for _, deal := range d.Result {
 		if strings.Contains(deal.Title, deal_name) {
 			return strconv.Atoi(deal.Id)
 		}
