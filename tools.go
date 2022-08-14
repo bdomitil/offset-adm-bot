@@ -28,12 +28,12 @@ type callbackJSON struct {
 }
 
 func isOffsetChat(title string) bool {
-	status, _ := regexp.MatchString(`OF\d\d\d`, title)
+	status, _ := regexp.MatchString(`OF(\d{3}-\d{1,2})|OF(\d{3})`, title)
 	return status
 }
 
 func getOffsets(title string) []string {
-	regex, _ := regexp.Compile(`OF\d\d\d`)
+	regex, _ := regexp.Compile(`OF(\d{3}-\d{1,2})|OF(\d{3})`)
 	return regex.FindAllString(title, -1)
 }
 
