@@ -34,7 +34,7 @@ func main() {
 		}
 		var newMsg tgbotapi.MessageConfig
 
-		if isChat := isOffsetChat(update.FromChat().Title); update.FromChat().IsGroup() && isChat {
+		if isChat := isOffsetChat(update.FromChat().Title); (update.FromChat().IsGroup() || update.FromChat().IsSuperGroup()) && isChat {
 			newMsg, err = manageGroupChat(&update, bot)
 			if err != nil && err.Error() == "skip" {
 				continue
