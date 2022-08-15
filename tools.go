@@ -120,7 +120,11 @@ func genReplyForMsg(update *tgbotapi.Update, status uint8) (reply tgbotapi.Messa
 		reply.ReplyMarkup = tgbotapi.NewReplyKeyboard(genReplyForMsgKeyboard(reportButtons["open"], reportButtons["close"]))
 		repList.close(update.Message.Chat.ID)
 	default:
-		reply.Text = fmt.Sprintf("Ошибка при попытке генерации ответа, неизвестный статус заявки %s  %d!", getSmile("fail"), status)
+		if status == 5 {
+			reply.Text = fmt.Sprintln("Пожалуйста завершите выбор неисправного аппарата + ") + getSmile("hand")
+		} else {
+			reply.Text = fmt.Sprintf("Ошибка при попытке генерации ответа, неизвестный статус заявки %s  %d!", getSmile("fail"), status)
+		}
 	}
 	return reply
 }
