@@ -36,13 +36,15 @@ func main() {
 
 		if isChat := isOffsetChat(update.FromChat().Title); update.FromChat().IsGroup() && isChat {
 			newMsg, err = manageGroupChat(&update, bot)
-			if err != nil {
+			if err != nil && err.Error() == "skip" {
+				continue
+			} else if err != nil {
 				sendAdminErroMsg(bot, err.Error())
 				continue
 			}
 		} else if update.FromChat().IsPrivate() {
 			newMsg.Text = "Я пока еще не умею общаться так, но очень скоро научусь! дождись меня"
-			newMsg.ChatID = update.Message.Chat.ID
+			newMsg.ChatID = update.FromChat().ID
 		}
 		_, err := bot.Send(newMsg)
 		if err != nil {

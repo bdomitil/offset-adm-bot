@@ -90,34 +90,34 @@ func genReplyForMsg(update *tgbotapi.Update, status uint8) (reply tgbotapi.Messa
 	switch status {
 	case 2:
 		reply.Text = replies["get_info_msg"] //Создание новой заявки
-		reply.ReplyMarkup = tgbotapi.NewReplyKeyboard(genReplyForMsgKeyboard(reportButtons["close"]))
+		reply.ReplyMarkup = tgbotapi.NewReplyKeyboard(genReplyForMsgKeyboard(reportButtons["open"], reportButtons["close"]))
 		rep.description.status = 3
 		repList.putReport(update.FromChat().ID, rep)
 
 	case 3:
 		reply.Text = replies["request_filled_msg"] //Успешное заполнение заявки
-		reply.ReplyMarkup = tgbotapi.NewReplyKeyboard(genReplyForMsgKeyboard(reportButtons["open"]))
-		rep.description.comments = fmt.Sprintf("\tНомер аппарата - %s\n\n\tЖалоба:\n%s\n", rep.description.offID[0], update.Message.Text)
+		reply.ReplyMarkup = tgbotapi.NewReplyKeyboard(genReplyForMsgKeyboard(reportButtons["open"], reportButtons["close"]))
+		rep.description.comments = fmt.Sprintf("\tНомер аппарата - %s\n\n\tЖалоба:\n%s\n",
+			rep.description.offID[0], update.Message.Text)
 		if err := createTask(&BitrixU, rep.description); err != nil {
 			reply.Text = "Ой((   Что-то пошло не так\nЯ уже передал сообщения администраторам\nМожете попробовать еще раз"
 		}
 		repList.close(update.Message.Chat.ID) // TODO: make it close by bitrix api
 	case 4:
-		reply.Text = "Пожалуйста выберите номер неисправного аппарата" //TODO change number of terminal to terminal location
+		reply.Text = "Пожалуйста выберите номер неисправного аппарата" //TODO change [terminal id] to [terminal location]
 		reply.ReplyMarkup = select_OffId_Inline_keyboard(rep.description.offID)
 		rep.description.status = 5
 		repList.putReport(update.FromChat().ID, rep)
-
 	case 101:
 		reply.Text = "Пожалуйста завершите предыдущую заявку или нажмите + " + reportButtons["close"]
-		reply.ReplyMarkup = tgbotapi.NewOneTimeReplyKeyboard(genReplyForMsgKeyboard(reportButtons["close"]))
+		reply.ReplyMarkup = tgbotapi.NewReplyKeyboard(genReplyForMsgKeyboard(reportButtons["open"], reportButtons["close"]))
 	case 102:
-		reply.Text = "Нет открытых заявок, " + reportButtons["open"] + "чтоб открыть новую заявку"
-		reply.ReplyMarkup = tgbotapi.NewReplyKeyboard(genReplyForMsgKeyboard(reportButtons["open"]))
+		reply.Text = "Нет открытых заявок\n" + reportButtons["open"] + " - чтоб открыть новую заявку"
+		reply.ReplyMarkup = tgbotapi.NewReplyKeyboard(genReplyForMsgKeyboard(reportButtons["open"], reportButtons["close"]))
 	case 200:
 		reply.Text = "Заявка успешко закрыта!"
 		reply.ReplyToMessageID = repList.getReport(update.Message.Chat.ID).openMsgID
-		reply.ReplyMarkup = tgbotapi.NewReplyKeyboard(genReplyForMsgKeyboard(reportButtons["open"]))
+		reply.ReplyMarkup = tgbotapi.NewReplyKeyboard(genReplyForMsgKeyboard(reportButtons["open"], reportButtons["close"]))
 		repList.close(update.Message.Chat.ID)
 	default:
 		reply.Text = fmt.Sprintf("Ошибка при попытке генерации ответа, неизвестный статус заявки %s  %d!", getSmile("fail"), status)

@@ -30,7 +30,8 @@ func createTask(bit *bitrix.Profile, data reportForm) error {
 
 func manageGroupChat(update *tgbotapi.Update, bot *tgbotapi.BotAPI) (reply tgbotapi.MessageConfig, err error) {
 
-	if repList.isOpen(update) && repList.getReport(update.FromChat().ID).creator != update.SentFrom().ID { //return and not allow to any other reports ultil previous deletes
+	if (repList.isOpen(update) && repList.getReport(update.FromChat().ID).creator !=
+		update.SentFrom().ID) || update.SentFrom().IsBot { //return and not allow to any other reports ultil previous deletes
 		return
 	}
 	reply = tgbotapi.NewMessage(update.FromChat().ID, "")
@@ -53,8 +54,6 @@ func manageGroupChat(update *tgbotapi.Update, bot *tgbotapi.BotAPI) (reply tgbot
 			{
 				if repList.isOpen(update) {
 					reply = genReplyForMsg(update, 255)
-				} else {
-					reply.ChatID = 0
 				}
 			}
 		}
