@@ -29,31 +29,31 @@ func main() {
 	updates := bot.GetUpdatesChan(u)
 
 	for update := range updates {
-		if update.Message == nil ||
-			(update.Message.Text == "" && len(update.Message.NewChatMembers) == 0) &&
-				update.CallbackQuery == nil {
-			tgbotapi.NewBotCommandScopeAllGroupChats()
+		if update.Message == nil &&
+			update.CallbackQuery == nil {
 			continue
 		}
 		var newMsg tgbotapi.MessageConfig
-
-		if isChat := isOffsetChat(update.FromChat().Title); (update.FromChat().IsGroup() || update.FromChat().IsSuperGroup()) && isChat {
-			if len(update.Message.NewChatMembers) > 0 && bot.Self.ID == update.Message.NewChatMembers[0].ID {
-				update.Message.Text = "start"
+		isChat := isOffsetChat(update.FromChat().Title)
+		if (update.FromChat().IsGroup() ||
+			update.FromChat().IsSuperGroup()) &&
+			isChat { //allows just offset groups
+			if len(update.Message.NewChatMembers) > 0 { //manage new chat members
+				newMsg, _ = manageUserEntry(bot, &update)
+			} else if len(update.Message.Text) > 0 { //manage text messages commands
+				newMsg, err = manageGroupChat(&update, bot)
 			}
-			newMsg, err = manageGroupChat(&update, bot)
 			if err != nil && err.Error() == "skip" {
 				continue
 			} else if err != nil {
 				sendAdminErroMsg(bot, err.Error())
 				continue
 			}
-			if newMsg.Text != "" {
-				_, err = bot.Send(newMsg)
-			}
-		} else if update.FromChat().IsPrivate() {
+		} else if update.FromChat().IsPrivate() { //manage all private chats
 			newMsg.Text = "Я пока еще не умею общаться так, но очень скоро научусь! дождись меня"
 			newMsg.ChatID = update.FromChat().ID
+		}
+		if newMsg.Text != "" {
 			_, err = bot.Send(newMsg)
 		}
 		if err != nil {

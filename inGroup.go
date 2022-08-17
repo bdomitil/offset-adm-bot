@@ -76,3 +76,18 @@ func manageGroupChat(update *tgbotapi.Update, bot *tgbotapi.BotAPI) (reply tgbot
 	}
 	return reply, err
 }
+
+func manageUserEntry(bot *tgbotapi.BotAPI, update *tgbotapi.Update) (reply tgbotapi.MessageConfig, err error) {
+	for _, enterUser := range update.Message.NewChatMembers {
+		if enterUser.IsBot {
+			if enterUser.ID == bot.Self.ID {
+				reply.Text = initText
+				reply.ChatID = update.FromChat().ID
+				err = nil
+			}
+		} else if !enterUser.IsBot {
+			reply.Text = "" //TODO maybe needed in future
+		}
+	}
+	return
+}
