@@ -19,6 +19,13 @@ var smiles = map[string][]byte{
 	"comp":  []byte("\xF0\x9F\x93\x87"),
 }
 
+var initText string = `Доброго времени суток☀️🌙
+
+Меня зовут бот Оффсетик 
+Я добавлен в Ваш чат для решения всех технических проблем в дальнейшем🦸🏻‍♂️
+Можете обращаться ко мне за поддержкой 24\7, я буду рад помочь 🤗
+Надеюсь на нашу долгую плодотворную работу ✨`
+
 //Types:
 //	offsetID
 //	smile
@@ -76,10 +83,12 @@ func select_OffId_Inline_keyboard(offs []string) (keyboard tgbotapi.InlineKeyboa
 //status = 3   : Reply is ready to be published
 //status = 4   : Needs to choose offset id
 //status = 5   : offset id has been choosen
+//status = 1   : init message of bot
 //status = 101 : Error openning new request, request is almost opened
 //status = 102 : Error closing request, no opened requests found
 //status = 200 : Reply is successfully closed
 //status = 255 : Skip checking request status
+
 func genReplyForMsg(update *tgbotapi.Update, status uint8) (reply tgbotapi.MessageConfig) {
 	rep, ok := repList.findReport(update.FromChat().ID)
 	if ok && status == 255 {
@@ -88,39 +97,39 @@ func genReplyForMsg(update *tgbotapi.Update, status uint8) (reply tgbotapi.Messa
 	reply.ChatID = update.FromChat().ID
 	// fmt.Printf("statusMSG = %d\n", status) //DEBUG
 	switch status {
+	case 1:
+		reply.Text = initText
 	case 2:
 		reply.Text = replies["get_info_msg"] //Создание новой заявки
-		reply.ReplyMarkup = tgbotapi.NewReplyKeyboard(genReplyForMsgKeyboard(reportButtons["close"]))
 		rep.description.status = 3
 		repList.putReport(update.FromChat().ID, rep)
 
 	case 3:
 		reply.Text = replies["request_filled_msg"] //Успешное заполнение заявки
-		reply.ReplyMarkup = tgbotapi.NewReplyKeyboard(genReplyForMsgKeyboard(reportButtons["open"]))
-		rep.description.comments = fmt.Sprintf("\tНомер аппарата - %s\n\n\tЖалоба:\n%s\n", rep.description.offID[0], update.Message.Text)
+		rep.description.comments = fmt.Sprintf("\tНомер аппарата - %s\n\n\tЖалоба:\n%s\n",
+			rep.description.offID[0], update.Message.Text)
 		if err := createTask(&BitrixU, rep.description); err != nil {
 			reply.Text = "Ой((   Что-то пошло не так\nЯ уже передал сообщения администраторам\nМожете попробовать еще раз"
 		}
 		repList.close(update.Message.Chat.ID) // TODO: make it close by bitrix api
 	case 4:
-		reply.Text = "Пожалуйста выберите номер неисправного аппарата" //TODO change number of terminal to terminal location
-		reply.ReplyMarkup = select_OffId_Inline_keyboard(rep.description.offID)
+		reply.Text = "Пожалуйста выберите номер неисправного аппарата" //TODO change [terminal id] to [terminal location]
 		rep.description.status = 5
 		repList.putReport(update.FromChat().ID, rep)
-
 	case 101:
 		reply.Text = "Пожалуйста завершите предыдущую заявку или нажмите + " + reportButtons["close"]
-		reply.ReplyMarkup = tgbotapi.NewOneTimeReplyKeyboard(genReplyForMsgKeyboard(reportButtons["close"]))
 	case 102:
-		reply.Text = "Нет открытых заявок, " + reportButtons["open"] + "чтоб открыть новую заявку"
-		reply.ReplyMarkup = tgbotapi.NewReplyKeyboard(genReplyForMsgKeyboard(reportButtons["open"]))
+		reply.Text = "Нет открытых заявок\n" + reportButtons["open"] + " - чтоб открыть новую заявку"
 	case 200:
 		reply.Text = "Заявка успешко закрыта!"
 		reply.ReplyToMessageID = repList.getReport(update.Message.Chat.ID).openMsgID
-		reply.ReplyMarkup = tgbotapi.NewReplyKeyboard(genReplyForMsgKeyboard(reportButtons["open"]))
 		repList.close(update.Message.Chat.ID)
 	default:
-		reply.Text = fmt.Sprintf("Ошибка при попытке генерации ответа, неизвестный статус заявки %s  %d!", getSmile("fail"), status)
+		if status == 5 {
+			reply.Text = fmt.Sprintln("Пожалуйста завершите выбор неисправного аппарата ") + getSmile("hand")
+		} else {
+			reply.Text = fmt.Sprintf("Ошибка при попытке генерации ответа, неизвестный статус заявки %s  %d!", getSmile("fail"), status)
+		}
 	}
 	return reply
 }
