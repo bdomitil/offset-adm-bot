@@ -11,10 +11,11 @@ import (
 )
 
 var reportButtons = map[string]string{
-	"open":   "Создать обращение",
+	"open":   "openreport",
 	"delete": "Удалить обращение",
 	"finish": "Завершить обращение",
-	"close":  "Закрыть обращение"}
+	"close":  "closereport",
+	"start":  "start"}
 
 func createTask(bit *bitrix.Profile, data reportForm) error {
 	deals := bitrix.Get_deals()
@@ -36,7 +37,7 @@ func manageGroupChat(update *tgbotapi.Update, bot *tgbotapi.BotAPI) (reply tgbot
 	}
 	reply = tgbotapi.NewMessage(update.FromChat().ID, "")
 	if update.Message != nil { //Client sent message
-		switch update.Message.Text {
+		switch update.Message.Command() {
 		case reportButtons["open"]:
 			if repList.isOpen(update) {
 				reply = genReplyForMsg(update, 101)
@@ -50,6 +51,8 @@ func manageGroupChat(update *tgbotapi.Update, bot *tgbotapi.BotAPI) (reply tgbot
 			} else {
 				reply = genReplyForMsg(update, 102)
 			}
+		case reportButtons["start"]:
+			reply = genReplyForMsg(update, 1)
 		default:
 			{
 				if repList.isOpen(update) {
