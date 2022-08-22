@@ -114,6 +114,7 @@ func genReplyForMsg(update *tgbotapi.Update, status uint8) (reply tgbotapi.Messa
 		repList.close(update.Message.Chat.ID) // TODO: make it close by bitrix api
 	case 4:
 		reply.Text = "Пожалуйста выберите номер неисправного аппарата" //TODO change [terminal id] to [terminal location]
+		reply.ReplyMarkup = select_OffId_Inline_keyboard(rep.description.offID)
 		rep.description.status = 5
 		repList.putReport(update.FromChat().ID, rep)
 	case 101:
