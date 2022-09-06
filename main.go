@@ -38,9 +38,11 @@ func main() {
 		if (update.FromChat().IsGroup() ||
 			update.FromChat().IsSuperGroup()) &&
 			isChat { //allows just offset groups
-			if len(update.Message.NewChatMembers) > 0 { //manage new chat members
+			if update.CallbackQuery != nil {
+				newMsg, err = manageGroupChat(&update, bot) //manage callback queries commands
+			} else if len(update.Message.NewChatMembers) > 0 { //manage new chat members
 				newMsg, _ = manageUserEntry(bot, &update)
-			} else if len(update.Message.Text) > 0 { //manage text messages commands
+			} else if update.Message != nil && len(update.Message.Text) > 0 { //manage text messages commands
 				newMsg, err = manageGroupChat(&update, bot)
 			}
 			if err != nil && err.Error() == "skip" {
