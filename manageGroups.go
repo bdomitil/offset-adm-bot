@@ -11,7 +11,7 @@ import (
 
 //TODO change cacheGroup url
 func cacheGroup(url string, update *tgbotapi.Update, selfId int64) error {
-	// log.Println("trying to cache")
+	log.Println("trying to cache")
 	newChat := chat{BotID: selfId, Title: update.FromChat().Title, ID: update.FromChat().ID, Type: 2} //2 - group
 	js, err := json.Marshal(newChat)
 	if err != nil {
@@ -30,7 +30,7 @@ func cacheGroup(url string, update *tgbotapi.Update, selfId int64) error {
 	}
 	defer response.Body.Close()
 	if response.StatusCode == 200 {
-		// log.Printf("chat %d has been cached\n", newChat.ID)
+		log.Printf("chat %d has been cached\n", newChat.ID)
 	} else {
 		log.Printf("error caching chat %d", newChat.ID)
 	}

@@ -16,3 +16,4 @@
 
 docker-compose.yaml
 db_creds
+tg_cache
