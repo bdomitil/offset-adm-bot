@@ -1,11 +1,8 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"log"
-	"net/http"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 
@@ -32,40 +29,12 @@ func createTask(bit *bitrix.Profile, data reportForm) error {
 	return err
 }
 
-func cacheGroup(url string, update *tgbotapi.Update, selfId int64) error {
-	log.Println("trying to cache")
-	newChat := chat{BotID: selfId, Title: update.FromChat().Title, ID: update.FromChat().ID, Type: 2} //2 - group
-	js, err := json.Marshal(newChat)
-	if err != nil {
-		return err
-	}
-	request, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(js))
-	if err != nil {
-		log.Println(err.Error())
-		return err
-	}
-	request.Header.Add("Content-Type", "application/json")
-	response, err := http.DefaultClient.Do(request)
-	if err != nil {
-		log.Println(err.Error())
-		return err
-	}
-	defer response.Body.Close()
-	if response.StatusCode == 200 {
-		log.Printf("chat %d has been cached\n", newChat.ID)
-	} else {
-		log.Printf("error caching chat %d", newChat.ID)
-	}
-	return nil
-}
-
 func manageGroupChat(update *tgbotapi.Update, bot *tgbotapi.BotAPI) (reply tgbotapi.MessageConfig, err error) {
 	if (repList.isOpen(update) && repList.getReport(update.FromChat().ID).creator !=
 		update.SentFrom().ID) || update.SentFrom().IsBot { //return and not allow to any other reports ultil previous deletes
 		return
 	}
 	//cache group chat
-	cacheGroup("http://localhost:3334/chat/add/", update, bot.Self.ID)
 	reply = tgbotapi.NewMessage(update.FromChat().ID, "")
 	if update.Message != nil { //Client sent message
 		switch update.Message.Command() {
@@ -84,6 +53,7 @@ func manageGroupChat(update *tgbotapi.Update, bot *tgbotapi.BotAPI) (reply tgbot
 			}
 		case reportButtons["start"]:
 			reply = genReplyForMsg(update, 1)
+			cacheGroup("http://localhost:3334/chat/add/", update, bot.Self.ID)
 		default:
 			{
 				if repList.isOpen(update) {
@@ -115,6 +85,7 @@ func manageUserEntry(bot *tgbotapi.BotAPI, update *tgbotapi.Update) (reply tgbot
 				reply.Text = initText
 				reply.ChatID = update.FromChat().ID
 				err = nil
+				cacheGroup("http://localhost:3334/chat/add/", update, bot.Self.ID)
 			}
 		} else if !enterUser.IsBot {
 			reply.Text = "" //TODO maybe needed in future
