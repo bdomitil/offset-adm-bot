@@ -2,11 +2,17 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
+	"reflect"
 	"regexp"
 	"strconv"
+	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
@@ -26,13 +32,7 @@ var initText string = `Доброго времени суток☀️🌙
 Можете обращаться ко мне за поддержкой 24\7, я буду рад помочь 🤗
 Надеюсь на нашу долгую плодотворную работу ✨`
 
-//Types:
-//	offsetID
-//	smile
-type callbackJSON struct {
-	Type string `json:"info"`
-	Info string `json:"text"`
-}
+var last_user_up time.Time = time.Now()
 
 func isOffsetChat(title string) bool {
 	status, _ := regexp.MatchString(`OF(\d{3}-\d{1,2})|OF(\d{3})`, title)
@@ -135,6 +135,23 @@ func genReplyForMsg(update *tgbotapi.Update, status uint8) (reply tgbotapi.Messa
 	return reply
 }
 
+func NewResizeOneTimeReplyKeyboard(buttons ...string) (keyboard tgbotapi.ReplyKeyboardMarkup) {
+	row := make([]tgbotapi.KeyboardButton, 0)
+	rows := make([][]tgbotapi.KeyboardButton, 0)
+	for i, b := range buttons {
+		butt := tgbotapi.NewKeyboardButton(b)
+		row = append(row, butt)
+		if (i+1)%3 == 0 {
+			rows = append(rows, row)
+			row = make([]tgbotapi.KeyboardButton, 0)
+		}
+	}
+	rows = append(rows, row)
+	keyboard = tgbotapi.NewReplyKeyboard(rows...)
+	keyboard.OneTimeKeyboard = true
+	keyboard.ResizeKeyboard = true
+	return
+}
 func genReplyForCallback(update *tgbotapi.Update, status uint8, bot *tgbotapi.BotAPI) (reply tgbotapi.MessageConfig) {
 	rep, ok := repList.findReport(update.FromChat().ID)
 	if ok && status == 255 {
@@ -158,4 +175,77 @@ func genReplyForCallback(update *tgbotapi.Update, status uint8, bot *tgbotapi.Bo
 		reply.Text = getSmile("fail") + getSmile("fail")
 	}
 	return reply
+}
+
+func updateUserList(botID int64) {
+	currentT := time.Now()
+	upPeriod := time.Minute * 5
+	url := fmt.Sprintf("http://localhost:3334/user/list/%d", botID)
+	// url := fmt.Sprintf("http://tg_cache:3334/user/list/%d", botID)
+
+	if currentT.After(last_user_up) {
+		last_user_up = time.Now().Add(upPeriod)
+		var newUsers []user
+		req, err := http.NewRequest(http.MethodGet, url, nil)
+		if err != nil {
+			log.Println(err.Error())
+			return
+		}
+		req.Header.Add("Content-Type", "application/json")
+		response, err := http.DefaultClient.Do(req)
+
+		if err != nil || response.StatusCode != 200 {
+			if err != nil {
+				log.Println(err.Error())
+			}
+			return
+		}
+		defer response.Body.Close()
+		responseBody, err := ioutil.ReadAll(response.Body)
+		if err != nil {
+			log.Println(err.Error())
+			return
+		}
+		err = json.Unmarshal(responseBody, &newUsers)
+		if err != nil {
+			log.Println(err.Error())
+			return
+		}
+		upUsers := make(map[int64]user)
+		for _, u := range newUsers {
+			if _, ok := Users[u.ID]; ok {
+				u.cmd = Users[u.ID].cmd
+				u.prevCmd = Users[u.ID].prevCmd
+			}
+			upUsers[u.ID] = u
+		}
+		for k := range Users {
+			delete(Users, k)
+		}
+		Users = upUsers
+	}
+}
+
+func getChatsForBot(botID int64) (chats []chat, err error) {
+	resp, err := http.Get(fmt.Sprintf("http://localhost:3334/chat/list/%d", botID)) //TODO change to config parse
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return
+	}
+	if resp.StatusCode != 200 {
+		return nil, errors.New(string(body))
+	}
+	err = json.Unmarshal(body, &chats)
+	if err != nil {
+		return
+	}
+	return chats, nil
+}
+
+func isNil(i interface{}) bool {
+	return i == nil || reflect.ValueOf(i).IsNil()
 }

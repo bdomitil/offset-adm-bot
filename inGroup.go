@@ -53,7 +53,9 @@ func manageGroupChat(update *tgbotapi.Update, bot *tgbotapi.BotAPI) (reply tgbot
 			}
 		case reportButtons["start"]:
 			reply = genReplyForMsg(update, 1)
-			cacheGroup("http://tg_cache:3334/chat/add/", update, bot.Self.ID)
+			// cacheGroup("http://tg_cache:3334/chat/add/", update, bot.Self.ID)
+			cacheGroup("http://localhost:3334/chat/add/", update, bot.Self.ID)
+
 		default:
 			{
 				if repList.isOpen(update) {

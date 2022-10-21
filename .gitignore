@@ -17,3 +17,4 @@
 docker-compose.yaml
 db_creds
 tg_cache
+ex_vars.sh
