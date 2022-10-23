@@ -20,5 +20,4 @@ func (u *user) adminPanelExec(bot *tgbotapi.BotAPI, update *tgbotapi.Update) {
 	u.cmd = cmd
 	cmd.exec(bot, update)
 	u.prevCmd = cmd.copy()
-	// Users[update.FromChat().ID] = *u
 }

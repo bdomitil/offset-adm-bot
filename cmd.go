@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -16,6 +17,7 @@ func (c *unknownCmd) init(u *user, cmd string) {
 	case superLvl:
 		c.keyboard = NewResizeOneTimeReplyKeyboard(keyboards["superUserMenu"]...)
 	}
+	c.state = processing
 }
 
 func (c *mainMenuCmd) init(u *user, cmd string) {
@@ -28,6 +30,7 @@ func (c *mainMenuCmd) init(u *user, cmd string) {
 	}
 	c.executable = true
 	c.level = anyLvl
+	c.state = processing
 }
 
 func (c *distribCmd) init(u *user, cmd string) {
@@ -42,11 +45,13 @@ func (c *distribCmd) init(u *user, cmd string) {
 		c.executable = true
 	}
 	c.level = adminLvl
+	c.state = processing
 }
 
 func (c *backCmd) init(u *user, cmd string) {
 	c.name = "Назад"
 	c.level = anyLvl
+	c.state = processing
 }
 
 func (c *unknownCmd) exec(bot *tgbotapi.BotAPI, u *tgbotapi.Update) (err error) {
@@ -55,6 +60,7 @@ func (c *unknownCmd) exec(bot *tgbotapi.BotAPI, u *tgbotapi.Update) (err error) 
 	msg.Text = "Неизвестная команда"
 	msg.ReplyMarkup = c.keyboard
 	_, err = bot.Send(msg)
+	c.state = closed
 	return
 }
 
@@ -64,12 +70,14 @@ func (c *mainMenuCmd) exec(bot *tgbotapi.BotAPI, u *tgbotapi.Update) (err error)
 	msg.Text = mainMenu
 	msg.ReplyMarkup = c.keyboard
 	_, err = bot.Send(msg)
+	c.state = processing
 	return
 }
 func (c *backCmd) exec(bot *tgbotapi.BotAPI, u *tgbotapi.Update) (err error) {
 
 	var msg tgbotapi.MessageConfig
 	msg.ChatID = u.FromChat().ID
+	c.state = processing
 	msg.Text = "Назад"
 	// if
 
@@ -95,6 +103,7 @@ func (c *mainMenuCmd) copy() (copy Cmd) {
 	x.keyboard = c.keyboard
 	x.level = c.level
 	x.name = c.name
+	x.state = c.state
 	return x
 }
 
@@ -104,6 +113,7 @@ func (c *distribCmd) copy() (copy Cmd) {
 	x.keyboard = c.keyboard
 	x.level = c.level
 	x.name = c.name
+	x.state = c.state
 	return x
 }
 
@@ -113,6 +123,7 @@ func (c *backCmd) copy() (copy Cmd) {
 	x.keyboard = c.keyboard
 	x.level = c.level
 	x.name = c.name
+	x.state = c.state
 	return x
 }
 
@@ -122,7 +133,40 @@ func (c *unknownCmd) copy() (copy Cmd) {
 	x.keyboard = c.keyboard
 	x.level = c.level
 	x.name = c.name
+	x.state = c.state
 	return x
+}
+
+func (c *mainMenuCmd) getState() state {
+	return c.state
+}
+
+func (c *mainMenuCmd) setState(s state) {
+	c.state = s
+}
+
+func (c *unknownCmd) getState() state {
+	return c.state
+}
+
+func (c *unknownCmd) setState(s state) {
+	c.state = s
+}
+
+func (c *backCmd) getState() state {
+	return c.state
+}
+
+func (c *backCmd) setState(s state) {
+	c.state = s
+}
+
+func (c *distribCmd) getState() state {
+	return c.state
+}
+
+func (c *distribCmd) setState(s state) {
+	c.state = s
 }
 
 func resend_as_distrib(bot *tgbotapi.BotAPI, u *tgbotapi.Update) (err error) {
@@ -157,18 +201,23 @@ func (c *distribCmd) exec(bot *tgbotapi.BotAPI, u *tgbotapi.Update) (err error) 
 	case distrib:
 		msg.Text = "Пожалуйста выберите тип сообщение для массовой рассылки"
 		msg.ReplyMarkup = c.keyboard
+		c.state = processing
 	case photo:
 		msg.Text = "Пожалуйста отправьте мне фото без ТЕКСТА К НЕМУ!"
 		msg.ReplyMarkup = NewResizeOneTimeReplyKeyboard(mainMenu)
+		c.state = w8message
 	case document:
 		msg.Text = "Пожалуйста отправьте мне докумен без ТЕКСТА К НЕМУ!"
 		msg.ReplyMarkup = NewResizeOneTimeReplyKeyboard(mainMenu)
+		c.state = w8message
 	case video:
 		msg.Text = "Пожалуйста отправьте мне видео без ТЕКСТА К НЕМУ!"
 		msg.ReplyMarkup = NewResizeOneTimeReplyKeyboard(mainMenu)
+		c.state = w8message
 	case message:
 		msg.Text = "Пожалуйста отправьте мне сообщение без МЕДИА файлов!"
 		msg.ReplyMarkup = NewResizeOneTimeReplyKeyboard(mainMenu)
+		c.state = w8message
 	case "stop distrib":
 		err = resend_as_distrib(bot, u)
 		if err != nil {
@@ -176,8 +225,10 @@ func (c *distribCmd) exec(bot *tgbotapi.BotAPI, u *tgbotapi.Update) (err error) 
 		}
 		msg.Text = "Рассылка оконченна"
 		msg.ReplyMarkup = NewResizeOneTimeReplyKeyboard(mainMenu)
+		c.state = closed
 	default:
 		log.Println("unknown distr")
+		c.state = closed
 	}
 	_, err = bot.Send(msg)
 	return
@@ -200,33 +251,45 @@ func (c *backCmd) String() string {
 
 func (u *user) newCmd(cmd string) (newCmd Cmd, err error) {
 
-	switch cmd {
-	case "/start":
-		fallthrough
-	case mainMenu:
-		newCmd = new(mainMenuCmd)
-	case "Назад":
-		newCmd = new(backCmd)
-	case message:
-		fallthrough
-	case document:
-		fallthrough
-	case photo:
-		fallthrough
-	case video:
-		if !isNil(u.prevCmd) && u.prevCmd.String() != distrib {
-			newCmd = new(unknownCmd)
-			break
+	if !isNil(u.prevCmd) {
+		fmt.Println(u.prevCmd.String(), "  ", u.prevCmd.getState())
+	}
+	switch {
+	case isNil(u.prevCmd) || u.prevCmd.getState() != w8message:
+		{
+			switch cmd {
+			case "/start":
+				fallthrough
+			case mainMenu:
+				newCmd = new(mainMenuCmd)
+			case "Назад":
+				newCmd = new(backCmd)
+			case message:
+				fallthrough
+			case document:
+				fallthrough
+			case photo:
+				fallthrough
+			case video:
+				if !isNil(u.prevCmd) && u.prevCmd.String() != distrib {
+					newCmd = new(unknownCmd)
+					break
+				}
+				fallthrough
+			case distrib:
+				newCmd = new(distribCmd)
+			default:
+				newCmd = new(unknownCmd)
+			}
 		}
-		fallthrough
-	case distrib:
-		newCmd = new(distribCmd)
-	default:
-		if _, ok := u.prevCmd.(*distribCmd); ok { //TODO Make this part normal
-			newCmd = new(distribCmd)
-			cmd = "stop distrib"
-		} else {
-			newCmd = new(unknownCmd)
+	case u.prevCmd.getState() == w8message:
+		{
+			if _, ok := u.prevCmd.(*distribCmd); ok {
+				cmd = "stop distrib"
+				newCmd = new(distribCmd)
+			} else {
+				newCmd = new(unknownCmd)
+			}
 		}
 	}
 	newCmd.init(u, cmd)

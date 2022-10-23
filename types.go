@@ -17,15 +17,18 @@ var (
 		"userMenu":      {"Привет"},
 		"distribMenu":   {message, document, photo, video, "Главное меню", "Назад"},
 	}
-	superLvl uint8  = 0
-	adminLvl uint8  = 1
-	anyLvl   uint8  = 2
-	message  string = "Сообщение"
-	document string = "Документ"
-	photo    string = "Фото"
-	video    string = "Видео"
-	distrib  string = "Рассылка"
-	mainMenu string = "Главное меню"
+	superLvl   uint8  = 0
+	adminLvl   uint8  = 1
+	anyLvl     uint8  = 2
+	message    string = "Сообщение"
+	document   string = "Документ"
+	photo      string = "Фото"
+	video      string = "Видео"
+	distrib    string = "Рассылка"
+	mainMenu   string = "Главное меню"
+	w8message  state  = 0
+	processing state  = 1
+	closed     state  = 2
 )
 
 type mainMenuCmd struct {
@@ -33,6 +36,7 @@ type mainMenuCmd struct {
 	level      uint8 //0 - the highest level need to be executed, 2 - anyone can execute
 	name       string
 	executable bool
+	state      state
 }
 
 type distribCmd struct {
@@ -40,6 +44,7 @@ type distribCmd struct {
 	level      uint8 //0 - the highest level need to be executed, 2 - anyone can execute
 	name       string
 	executable bool
+	state      state
 }
 
 type backCmd struct {
@@ -47,6 +52,7 @@ type backCmd struct {
 	level      uint8 //0 - the highest level need to be executed, 2 - anyone can execute
 	name       string
 	executable bool
+	state      state
 }
 
 type unknownCmd struct {
@@ -54,6 +60,7 @@ type unknownCmd struct {
 	level      uint8 //0 - the highest level need to be executed, 2 - anyone can execute
 	name       string
 	executable bool
+	state      state
 }
 
 type Cmd interface {
@@ -62,7 +69,11 @@ type Cmd interface {
 	String() string
 	setName(string)
 	copy() Cmd
+	getState() state
+	setState(s state)
 }
+
+
 
 type chat struct {
 	ID    int64  `json:"id"`
