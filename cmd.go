@@ -251,9 +251,6 @@ func (c *backCmd) String() string {
 
 func (u *user) newCmd(cmd string) (newCmd Cmd, err error) {
 
-	if !isNil(u.prevCmd) {
-		fmt.Println(u.prevCmd.String(), "  ", u.prevCmd.getState())
-	}
 	switch {
 	case isNil(u.prevCmd) || u.prevCmd.getState() != w8message:
 		{
