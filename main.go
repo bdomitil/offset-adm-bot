@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"offset-adm-bot/bitrix"
 	"os"
@@ -14,16 +13,14 @@ var (
 	repList       = reportList{store: map[int64]report{}}
 	Users         = map[int64]user{}
 	BitrixU   bitrix.Profile
-	// bot       *tgbotapi.BotAPI
-	// update    *tgbotapi.Update
 )
 
 func SetUpTimeout(t int) {
 	upTimeout = t
 }
 
-func Init() (updates tgbotapi.UpdatesChannel, bot *tgbotapi.BotAPI) {
-	fmt.Println("Bot started")
+func (b *syncBot) Init() (updates tgbotapi.UpdatesChannel) {
+	log.Println("Bot started")
 	bot, err := tgbotapi.NewBotAPI(os.Getenv("TTOKEN"))
 	if err != nil {
 		panic("Unable to start Telegram Bot, check if TTOKEN is available")
@@ -36,18 +33,20 @@ func Init() (updates tgbotapi.UpdatesChannel, bot *tgbotapi.BotAPI) {
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = upTimeout
 	updates = bot.GetUpdatesChan(u)
-	return updates, bot
+	b.b = bot
+	return updates
 }
 
 func main() {
 	var err error
-	updates, bot := Init()
+	bot := newSyncBot()
+	updates := bot.Init()
 	for update := range updates {
 		if update.Message == nil &&
 			update.CallbackQuery == nil {
 			continue
 		}
-		updateUserList(bot.Self.ID)
+		updateUserList(bot.b.Self.ID)
 		var newMsg tgbotapi.MessageConfig
 		newMsg.ChatID = update.FromChat().ID
 		isChat := isOffsetChat(update.FromChat().Title)
@@ -68,7 +67,7 @@ func main() {
 					sendAdminErroMsg(bot, err.Error())
 					continue
 				}
-				bot.Send(newMsg)
+				_, err = bot.syncSend(newMsg)
 			}
 		case update.FromChat().IsPrivate() && isUserAuthed(update.FromChat().ID): //manage all private chats
 			user := Users[update.FromChat().ID]
@@ -76,7 +75,7 @@ func main() {
 			Users[update.FromChat().ID] = user
 		default:
 			newMsg.Text = "Я пока еще не умею общаться так, но очень скоро научусь! дождись меня"
-			bot.Send(newMsg)
+			_, err = bot.syncSend(newMsg)
 		}
 		if err != nil {
 			log.Println(err.Error())

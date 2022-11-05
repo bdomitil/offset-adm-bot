@@ -52,7 +52,7 @@ func genReplyForMsgKeyboard(buttons ...string) []tgbotapi.KeyboardButton {
 	return keyboards
 }
 
-func sendAdminErroMsg(bot *tgbotapi.BotAPI, text string) {
+func sendAdminErroMsg(bot *syncBot, text string) {
 	admin_id, err := strconv.Atoi(os.Getenv("ADMIN_ID"))
 	if err != nil || admin_id == 0 {
 		log.Fatalf("Admin telegram chat id is false")
@@ -60,7 +60,7 @@ func sendAdminErroMsg(bot *tgbotapi.BotAPI, text string) {
 	var newMsg tgbotapi.MessageConfig
 	newMsg.ChatID = int64(admin_id)
 	newMsg.Text = text
-	bot.Send(newMsg)
+	bot.syncSend(newMsg)
 }
 
 func getSmile(s string) string {
@@ -152,7 +152,7 @@ func NewResizeOneTimeReplyKeyboard(buttons ...string) (keyboard tgbotapi.ReplyKe
 	keyboard.ResizeKeyboard = true
 	return
 }
-func genReplyForCallback(update *tgbotapi.Update, status uint8, bot *tgbotapi.BotAPI) (reply tgbotapi.MessageConfig) {
+func genReplyForCallback(update *tgbotapi.Update, status uint8, bot *syncBot) (reply tgbotapi.MessageConfig) {
 	rep, ok := repList.findReport(update.FromChat().ID)
 	if ok && status == 255 {
 		status = rep.description.status
@@ -164,14 +164,14 @@ func genReplyForCallback(update *tgbotapi.Update, status uint8, bot *tgbotapi.Bo
 		rep.description.offID = []string{}
 		rep.description.offID = append(rep.description.offID, update.CallbackQuery.Data)
 		delmsg := tgbotapi.NewDeleteMessage(update.FromChat().ID, update.CallbackQuery.Message.MessageID)
-		_, err := bot.Request(delmsg)
+		_, err := bot.b.Request(delmsg)
 		if err != nil {
 			log.Println(err.Error())
 		}
 		return genReplyForMsg(update, 2)
 	default:
 		errInline := tgbotapi.NewCallback(update.CallbackQuery.ID, fmt.Sprintf("Ошибка в статусе задача, статус = %d", status))
-		bot.Request(errInline)
+		bot.b.Request(errInline)
 		reply.Text = getSmile("fail") + getSmile("fail")
 	}
 	return reply
@@ -248,4 +248,16 @@ func getChatsForBot(botID int64) (chats []chat, err error) {
 
 func isNil(i interface{}) bool {
 	return i == nil || reflect.ValueOf(i).IsNil()
+}
+
+func (bot *syncBot) syncSend(value tgbotapi.Chattable) (msg tgbotapi.Message, err error) {
+	bot.mutex.Lock()
+	msg, err = bot.b.Send(value)
+	time.Sleep(time.Millisecond * 300)
+	bot.mutex.Unlock()
+	return
+}
+
+func newSyncBot() (bot *syncBot) {
+	return new(syncBot)
 }

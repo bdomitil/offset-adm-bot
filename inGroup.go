@@ -29,7 +29,7 @@ func createTask(bit *bitrix.Profile, data reportForm) error {
 	return err
 }
 
-func manageGroupChat(update *tgbotapi.Update, bot *tgbotapi.BotAPI) (reply tgbotapi.MessageConfig, err error) {
+func manageGroupChat(update *tgbotapi.Update, bot *syncBot) (reply tgbotapi.MessageConfig, err error) {
 	if (repList.isOpen(update) && repList.getReport(update.FromChat().ID).creator !=
 		update.SentFrom().ID) || update.SentFrom().IsBot { //return and not allow to any other reports ultil previous deletes
 		return
@@ -53,8 +53,8 @@ func manageGroupChat(update *tgbotapi.Update, bot *tgbotapi.BotAPI) (reply tgbot
 			}
 		case reportButtons["start"]:
 			reply = genReplyForMsg(update, 1)
-			// cacheGroup("http://tg_cache:3334/chat/add/", update, bot.Self.ID)
-			cacheGroup("http://localhost:3334/chat/add/", update, bot.Self.ID)
+			// cacheGroup("http://tg_cache:3334/chat/add/", update, bot.b.Self.ID)
+			cacheGroup("http://localhost:3334/chat/add/", update, bot.b.Self.ID)
 
 		default:
 			{
@@ -80,14 +80,14 @@ func manageGroupChat(update *tgbotapi.Update, bot *tgbotapi.BotAPI) (reply tgbot
 	return reply, err
 }
 
-func manageUserEntry(bot *tgbotapi.BotAPI, update *tgbotapi.Update) (reply tgbotapi.MessageConfig, err error) {
+func manageUserEntry(bot *syncBot, update *tgbotapi.Update) (reply tgbotapi.MessageConfig, err error) {
 	for _, enterUser := range update.Message.NewChatMembers {
 		if enterUser.IsBot {
-			if enterUser.ID == bot.Self.ID {
+			if enterUser.ID == bot.b.Self.ID {
 				reply.Text = initText
 				reply.ChatID = update.FromChat().ID
 				err = nil
-				cacheGroup("http://tg_cache:3334/chat/add/", update, bot.Self.ID)
+				cacheGroup("http://tg_cache:3334/chat/add/", update, bot.b.Self.ID)
 			}
 		} else if !enterUser.IsBot {
 			reply.Text = "" //TODO maybe needed in future

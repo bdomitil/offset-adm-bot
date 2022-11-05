@@ -53,26 +53,26 @@ func (c *backCmd) init(u *user, cmd string) {
 	c.state = processing
 }
 
-func (c *unknownCmd) exec(bot *tgbotapi.BotAPI, u *tgbotapi.Update) (err error) {
+func (c *unknownCmd) exec(bot *syncBot, u *tgbotapi.Update) (err error) {
 	var msg tgbotapi.MessageConfig
 	msg.ChatID = u.FromChat().ID
 	msg.Text = "Неизвестная команда"
 	msg.ReplyMarkup = c.keyboard
-	_, err = bot.Send(msg)
+	_, err = bot.syncSend(msg)
 	c.state = closed
 	return
 }
 
-func (c *mainMenuCmd) exec(bot *tgbotapi.BotAPI, u *tgbotapi.Update) (err error) {
+func (c *mainMenuCmd) exec(bot *syncBot, u *tgbotapi.Update) (err error) {
 	var msg tgbotapi.MessageConfig
 	msg.ChatID = u.FromChat().ID
 	msg.Text = mainMenu
 	msg.ReplyMarkup = c.keyboard
-	_, err = bot.Send(msg)
+	_, err = bot.syncSend(msg)
 	c.state = processing
 	return
 }
-func (c *backCmd) exec(bot *tgbotapi.BotAPI, u *tgbotapi.Update) (err error) {
+func (c *backCmd) exec(bot *syncBot, u *tgbotapi.Update) (err error) {
 
 	var msg tgbotapi.MessageConfig
 	msg.ChatID = u.FromChat().ID
@@ -168,8 +168,8 @@ func (c *distribCmd) setState(s state) {
 	c.state = s
 }
 
-func resend_as_distrib(bot *tgbotapi.BotAPI, u *tgbotapi.Update) (err error) {
-	chats, err := getChatsForBot(bot.Self.ID)
+func resend_as_distrib(bot *syncBot, u *tgbotapi.Update) (err error) {
+	chats, err := getChatsForBot(bot.b.Self.ID)
 	if err != nil {
 		return
 	}
@@ -185,7 +185,7 @@ func resend_as_distrib(bot *tgbotapi.BotAPI, u *tgbotapi.Update) (err error) {
 		case len(u.Message.Text) > 0:
 			chattable = tgbotapi.NewMessage(c.ID, u.Message.Text)
 		}
-		_, err = bot.Send(chattable)
+		_, err = bot.syncSend(chattable)
 		if err != nil {
 			log.Println(err)
 		}
@@ -193,7 +193,7 @@ func resend_as_distrib(bot *tgbotapi.BotAPI, u *tgbotapi.Update) (err error) {
 	return
 }
 
-func (c *distribCmd) exec(bot *tgbotapi.BotAPI, u *tgbotapi.Update) (err error) {
+func (c *distribCmd) exec(bot *syncBot, u *tgbotapi.Update) (err error) {
 	var msg tgbotapi.MessageConfig
 	msg.ChatID = u.FromChat().ID
 	switch c.name {
@@ -229,7 +229,7 @@ func (c *distribCmd) exec(bot *tgbotapi.BotAPI, u *tgbotapi.Update) (err error) 
 		log.Println("unknown distr")
 		c.state = closed
 	}
-	_, err = bot.Send(msg)
+	_, err = bot.syncSend(msg)
 	return
 }
 

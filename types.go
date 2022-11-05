@@ -1,6 +1,10 @@
 package main
 
-import tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+import (
+	"sync"
+
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+)
 
 type state int32
 
@@ -30,6 +34,11 @@ var (
 	processing state  = 1
 	closed     state  = 2
 )
+
+type syncBot struct {
+	b     *tgbotapi.BotAPI
+	mutex sync.Mutex
+}
 
 type mainMenuCmd struct {
 	keyboard   tgbotapi.ReplyKeyboardMarkup
@@ -65,7 +74,7 @@ type unknownCmd struct {
 
 type Cmd interface {
 	init(*user, string)
-	exec(*tgbotapi.BotAPI, *tgbotapi.Update) error
+	exec(*syncBot, *tgbotapi.Update) error
 	String() string
 	setName(string)
 	copy() Cmd
@@ -73,17 +82,16 @@ type Cmd interface {
 	setState(s state)
 }
 
-
-
 type chat struct {
-	ID    int64  `json:"id"`
-	Title string `json:"title"`
-	BotID int64  `json:"botID"`
-	Type  uint8  `json:"type"`
+	ID         int64  `json:"chat_id"`
+	Title      string `json:"title"`
+	BotID      int64  `json:"botID"`
+	Type       uint8  `json:"type"`
+	Department string `json:"department"`
 }
 
 type user struct {
-	ID         int64  `json:"id"`
+	ID         int64  `json:"user_id"`
 	BotID      int64  `json:"botId"`
 	Username   string `json:"username"`
 	Firstname  string `json:"firstname,omitempty"`

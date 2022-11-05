@@ -11,7 +11,7 @@ func isUserAuthed(id int64) bool {
 	return ok
 }
 
-func (u *user) adminPanelExec(bot *tgbotapi.BotAPI, update *tgbotapi.Update) {
+func (u *user) adminPanelExec(bot *syncBot, update *tgbotapi.Update) {
 
 	cmd, err := u.newCmd(update.Message.Text)
 	if err != nil {
