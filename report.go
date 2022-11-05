@@ -56,9 +56,7 @@ func (rep *reportList) isOpen(update *tgbotapi.Update) bool {
 
 func (rep *reportList) close(id int64) {
 	rep.mutex.Lock()
-	if _, ok := rep.store[id]; ok {
-		delete(*rep.getStore(), id)
-	}
+	delete(rep.store, id)
 	rep.mutex.Unlock()
 }
 
