@@ -36,7 +36,7 @@ var (
 )
 
 type syncBot struct {
-	b     *tgbotapi.BotAPI
+	*tgbotapi.BotAPI
 	mutex sync.Mutex
 }
 

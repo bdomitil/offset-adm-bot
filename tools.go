@@ -164,14 +164,14 @@ func genReplyForCallback(update *tgbotapi.Update, status uint8, bot *syncBot) (r
 		rep.description.offID = []string{}
 		rep.description.offID = append(rep.description.offID, update.CallbackQuery.Data)
 		delmsg := tgbotapi.NewDeleteMessage(update.FromChat().ID, update.CallbackQuery.Message.MessageID)
-		_, err := bot.b.Request(delmsg)
+		_, err := bot.Request(delmsg)
 		if err != nil {
 			log.Println(err.Error())
 		}
 		return genReplyForMsg(update, 2)
 	default:
 		errInline := tgbotapi.NewCallback(update.CallbackQuery.ID, fmt.Sprintf("Ошибка в статусе задача, статус = %d", status))
-		bot.b.Request(errInline)
+		bot.Request(errInline)
 		reply.Text = getSmile("fail") + getSmile("fail")
 	}
 	return reply
@@ -227,6 +227,7 @@ func updateUserList(botID int64) {
 }
 
 func getChatsForBot(botID int64) (chats []chat, err error) {
+	// resp, err := http.Get(fmt.Sprintf("http://tg_cache:3334/chat/list/%d", botID))  //TODO change to config parse
 	resp, err := http.Get(fmt.Sprintf("http://localhost:3334/chat/list/%d", botID)) //TODO change to config parse
 	if err != nil {
 		return
@@ -252,7 +253,7 @@ func isNil(i interface{}) bool {
 
 func (bot *syncBot) syncSend(value tgbotapi.Chattable) (msg tgbotapi.Message, err error) {
 	bot.mutex.Lock()
-	msg, err = bot.b.Send(value)
+	msg, err = bot.Send(value)
 	time.Sleep(time.Millisecond * 300)
 	bot.mutex.Unlock()
 	return

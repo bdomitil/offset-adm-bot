@@ -33,7 +33,7 @@ func (b *syncBot) Init() (updates tgbotapi.UpdatesChannel) {
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = upTimeout
 	updates = bot.GetUpdatesChan(u)
-	b.b = bot
+	b.BotAPI = bot
 	return updates
 }
 
@@ -46,7 +46,7 @@ func main() {
 			update.CallbackQuery == nil {
 			continue
 		}
-		updateUserList(bot.b.Self.ID)
+		updateUserList(bot.Self.ID)
 		var newMsg tgbotapi.MessageConfig
 		newMsg.ChatID = update.FromChat().ID
 		isChat := isOffsetChat(update.FromChat().Title)

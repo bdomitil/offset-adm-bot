@@ -169,7 +169,7 @@ func (c *distribCmd) setState(s state) {
 }
 
 func resend_as_distrib(bot *syncBot, u *tgbotapi.Update) (err error) {
-	chats, err := getChatsForBot(bot.b.Self.ID)
+	chats, err := getChatsForBot(bot.Self.ID)
 	if err != nil {
 		return
 	}
