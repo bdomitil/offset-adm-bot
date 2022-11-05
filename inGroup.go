@@ -53,8 +53,8 @@ func manageGroupChat(update *tgbotapi.Update, bot *syncBot) (reply tgbotapi.Mess
 			}
 		case reportButtons["start"]:
 			reply = genReplyForMsg(update, 1)
-			// cacheGroup("http://tg_cache:3334/chat/add/", update, bot.Self.ID)
-			cacheGroup("http://localhost:3334/chat/add/", update, bot.Self.ID)
+			cacheGroup("http://tg_cache:3334/chat/add/", update, bot.Self.ID)
+			// cacheGroup("http://localhost:3334/chat/add/", update, bot.Self.ID)
 
 		default:
 			{
@@ -87,8 +87,8 @@ func manageUserEntry(bot *syncBot, update *tgbotapi.Update) (reply tgbotapi.Mess
 				reply.Text = initText
 				reply.ChatID = update.FromChat().ID
 				err = nil
-				// cacheGroup("http://tg_cache:3334/chat/add/", update, bot.b.Self.ID)
-				cacheGroup("http://localhost:3334/chat/add/", update, bot.Self.ID)
+				cacheGroup("http://tg_cache:3334/chat/add/", update, bot.Self.ID)
+				// cacheGroup("http://localhost:3334/chat/add/", update, bot.Self.ID)
 			}
 		} else if !enterUser.IsBot {
 			reply.Text = "" //TODO maybe needed in future

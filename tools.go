@@ -181,8 +181,8 @@ func genReplyForCallback(update *tgbotapi.Update, status uint8, bot *syncBot) (r
 func updateUserList(botID int64) {
 	currentT := time.Now()
 	upPeriod := time.Minute * 5
-	url := fmt.Sprintf("http://localhost:3334/user/list/%d", botID)
-	// url := fmt.Sprintf("http://tg_cache:3334/user/list/%d", botID)
+	// url := fmt.Sprintf("http://localhost:3334/user/list/%d", botID)
+	url := fmt.Sprintf("http://tg_cache:3334/user/list/%d", botID)
 
 	if currentT.After(last_user_up) {
 		last_user_up = time.Now().Add(upPeriod)
@@ -228,8 +228,8 @@ func updateUserList(botID int64) {
 }
 
 func getChatsForBot(botID int64) (chats []chat, err error) {
-	// resp, err := http.Get(fmt.Sprintf("http://tg_cache:3334/chat/list/%d", botID))  //TODO change to config parse
-	resp, err := http.Get(fmt.Sprintf("http://localhost:3334/chat/list/%d", botID)) //TODO change to config parse
+	resp, err := http.Get(fmt.Sprintf("http://tg_cache:3334/chat/list/%d", botID)) //TODO change to config parse
+	// resp, err := http.Get(fmt.Sprintf("http://localhost:3334/chat/list/%d", botID)) //TODO change to config parse
 	if err != nil {
 		return
 	}
