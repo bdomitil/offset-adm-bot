@@ -25,11 +25,10 @@ func (b *syncBot) Init() (updates tgbotapi.UpdatesChannel) {
 	if err != nil {
 		panic("Unable to start Telegram Bot, check if TTOKEN is available")
 	}
-	BitrixU, err := bitrix.Init(os.Getenv("BITRIX_TOKEN"))
+	BitrixU, err = bitrix.Init(os.Getenv("BITRIX_TOKEN"))
 	if err != nil {
 		panic("Unable to connect Bitrix Api : " + err.Error())
 	}
-	_ = BitrixU
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = upTimeout
 	updates = bot.GetUpdatesChan(u)
@@ -41,6 +40,7 @@ func main() {
 	var err error
 	bot := newSyncBot()
 	updates := bot.Init()
+	go reportsManager()
 	for update := range updates {
 		if update.Message == nil &&
 			update.CallbackQuery == nil {

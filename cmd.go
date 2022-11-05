@@ -177,13 +177,13 @@ func resend_as_distrib(bot *syncBot, u *tgbotapi.Update) (err error) {
 		var chattable tgbotapi.Chattable
 		switch {
 		case u.Message.Document != nil:
-			chattable = tgbotapi.NewDocument(c.ID, tgbotapi.FileID(u.Message.Document.FileID))
+			chattable = tgbotapi.NewDocument(c.Chat_id, tgbotapi.FileID(u.Message.Document.FileID))
 		case u.Message.Photo != nil:
-			chattable = tgbotapi.NewPhoto(c.ID, tgbotapi.FileID(u.Message.Photo[len(u.Message.Photo)-1].FileID))
+			chattable = tgbotapi.NewPhoto(c.Chat_id, tgbotapi.FileID(u.Message.Photo[len(u.Message.Photo)-1].FileID))
 		case u.Message.Video != nil:
-			chattable = tgbotapi.NewVideo(c.ID, tgbotapi.FileID(u.Message.Video.FileID))
+			chattable = tgbotapi.NewVideo(c.Chat_id, tgbotapi.FileID(u.Message.Video.FileID))
 		case len(u.Message.Text) > 0:
-			chattable = tgbotapi.NewMessage(c.ID, u.Message.Text)
+			chattable = tgbotapi.NewMessage(c.Chat_id, u.Message.Text)
 		}
 		_, err = bot.syncSend(chattable)
 		if err != nil {

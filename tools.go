@@ -12,6 +12,7 @@ import (
 	"reflect"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -213,11 +214,11 @@ func updateUserList(botID int64) {
 		}
 		upUsers := make(map[int64]user)
 		for _, u := range newUsers {
-			if _, ok := Users[u.ID]; ok {
-				u.cmd = Users[u.ID].cmd
-				u.prevCmd = Users[u.ID].prevCmd
+			if _, ok := Users[u.User_id]; ok {
+				u.cmd = Users[u.User_id].cmd
+				u.prevCmd = Users[u.User_id].prevCmd
 			}
-			upUsers[u.ID] = u
+			upUsers[u.User_id] = u
 		}
 		for k := range Users {
 			delete(Users, k)
@@ -261,4 +262,30 @@ func (bot *syncBot) syncSend(value tgbotapi.Chattable) (msg tgbotapi.Message, er
 
 func newSyncBot() (bot *syncBot) {
 	return new(syncBot)
+}
+
+func getDepartment(title string) (dep string) {
+	deps := strings.Split(title, " ")
+	deps1 := strings.Split(title, ".")
+
+	if deps[len(deps)-1] == "ОС" {
+		return "ОС"
+	}
+	if deps1[len(deps1)-1] == "ОС" {
+		return "ОС"
+	}
+	return "ОЗ"
+}
+
+func reportsManager() {
+	for {
+		repList.mutex.Lock()
+		for _, r := range repList.store {
+			if time.Now().After(r.creation_time.Add(time.Minute * 30)) {
+				delete(repList.store, r.chat_id)
+			}
+		}
+		repList.mutex.Unlock()
+		time.Sleep(time.Minute * 3)
+	}
 }

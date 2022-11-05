@@ -6,27 +6,6 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-type reportList struct {
-	store map[int64]report
-}
-
-type reportForm struct {
-	offID    []string
-	comments string
-	status   uint8
-	//TODO: add field for media data
-}
-
-type report struct {
-	creator       int64
-	description   reportForm
-	channel_id    int64
-	channel_name  string
-	creation_time time.Time
-	isFilled      bool
-	openMsgID     int
-}
-
 var replies = map[string]string{
 	"hello_msg": "Здраствуйте, меня зовут Оффсетик, я бот техподдержки компании OFFSET\n\n", //Приветсвенное сообщение
 	"get_info_msg": `Cейчас разберемся что у вас случилось 
@@ -41,33 +20,46 @@ var replies = map[string]string{
 }
 
 func (rep *reportList) getReport(id int64) (r report) {
+	rep.mutex.Lock()
 	r = rep.store[id]
+	rep.mutex.Unlock()
 	return
 }
 
 func (rep *reportList) findReport(id int64) (r report, ok bool) {
+	rep.mutex.Lock()
 	r, ok = rep.store[id]
+	rep.mutex.Unlock()
 	return
 }
 
 func (rep *reportList) getStore() (store *map[int64]report) {
-	return &rep.store
+	rep.mutex.Lock()
+	st := &rep.store
+	rep.mutex.Unlock()
+	return st
 }
 
 func (rep *reportList) putReport(id int64, r report) {
+	rep.mutex.Lock()
 	rep.store[id] = r
+	rep.mutex.Unlock()
 }
 
 func (rep *reportList) isOpen(update *tgbotapi.Update) bool {
+	rep.mutex.Lock()
 	ok := false
 	_, ok = rep.store[update.FromChat().ID]
+	rep.mutex.Unlock()
 	return ok
 }
 
 func (rep *reportList) close(id int64) {
+	rep.mutex.Lock()
 	if _, ok := rep.store[id]; ok {
 		delete(*rep.getStore(), id)
 	}
+	rep.mutex.Unlock()
 }
 
 func newReport(update *tgbotapi.Update) (newR report) {
@@ -76,7 +68,7 @@ func newReport(update *tgbotapi.Update) (newR report) {
 	newR.creator = update.SentFrom().ID
 	newR.creation_time = time.Now()
 	newR.channel_name = update.FromChat().Title
-	newR.channel_id = update.FromChat().ID
+	newR.chat_id = update.FromChat().ID
 	newR.openMsgID = update.Message.MessageID
 	newR.description = reportForm{}
 	newR.description.offID = getOffsets(newR.channel_name)

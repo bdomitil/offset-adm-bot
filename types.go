@@ -2,6 +2,7 @@ package main
 
 import (
 	"sync"
+	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
@@ -34,6 +35,28 @@ var (
 	processing state  = 1
 	closed     state  = 2
 )
+
+type reportList struct {
+	store map[int64]report
+	mutex sync.Mutex
+}
+
+type reportForm struct {
+	offID    []string
+	comments string
+	status   uint8
+	//TODO: add field for media data
+}
+
+type report struct {
+	creator       int64
+	description   reportForm
+	chat_id       int64
+	channel_name  string
+	creation_time time.Time
+	isFilled      bool
+	openMsgID     int
+}
 
 type syncBot struct {
 	*tgbotapi.BotAPI
@@ -83,20 +106,20 @@ type Cmd interface {
 }
 
 type chat struct {
-	ID         int64  `json:"chat_id"`
-	Title      string `json:"title"`
-	BotID      int64  `json:"botID"`
-	Type       uint8  `json:"type"`
-	Department string `json:"department"`
+	Chat_id    int64  `json:"chat_id" gorm:"column:chat_id"`
+	Title      string `json:"title" gorm:"column:title"`
+	Bot_id     int64  `json:"bot_id" gorm:"column:bot_id"`
+	Type       uint8  `json:"type" gorm:"column:type"`
+	Department string `json:"department" gorm:"column:department"`
 }
 
 type user struct {
-	ID         int64  `json:"user_id"`
-	BotID      int64  `json:"botId"`
-	Username   string `json:"username"`
-	Firstname  string `json:"firstname,omitempty"`
-	Rang       uint8  `json:"rang"` //0 - superUser, 1 - admin
-	Department string `json:"department"`
+	User_id    int64  `json:"user_id" gorm:"column:user_id"`
+	Bot_id     int64  `json:"bot_id" gorm:"column:bot_id"`
+	Username   string `json:"username" gorm:"column:username"`
+	Firstname  string `json:"firstname,omitempty" gorm:"column:firstname"`
+	Rang       uint8  `json:"rang" gorm:"column:rang"`
+	Department string `json:"department" gorm:"column:department"`
 	prevCmd    Cmd
 	cmd        Cmd
 }

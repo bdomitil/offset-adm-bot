@@ -11,7 +11,11 @@ import (
 
 //TODO change cacheGroup url
 func cacheGroup(url string, update *tgbotapi.Update, selfId int64) error {
-	newChat := chat{BotID: selfId, Title: update.FromChat().Title, ID: update.FromChat().ID, Type: 2} //2 - group
+	newChat := chat{Bot_id: selfId,
+		Title:      update.FromChat().Title,
+		Chat_id:    update.FromChat().ID,
+		Department: getDepartment(update.FromChat().Title),
+		Type:       2} //2 - group
 	js, err := json.Marshal(newChat)
 	if err != nil {
 		return err
@@ -28,10 +32,8 @@ func cacheGroup(url string, update *tgbotapi.Update, selfId int64) error {
 		return err
 	}
 	defer response.Body.Close()
-	if response.StatusCode == 200 {
-		log.Printf("chat %d has been cached\n", newChat.ID)
-	} else {
-		log.Printf("error caching chat %d", newChat.ID)
+	if response.StatusCode != 200 {
+		log.Printf("error caching chat %d", newChat.Chat_id)
 	}
 	return nil
 }
