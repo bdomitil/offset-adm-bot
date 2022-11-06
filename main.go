@@ -41,6 +41,7 @@ func main() {
 	bot := newSyncBot()
 	updates := bot.Init()
 	go reportsManager()
+	go updateUserList(bot.Self.ID)
 	for update := range updates {
 		if update.Message == nil &&
 			update.CallbackQuery == nil {
@@ -70,9 +71,11 @@ func main() {
 				_, err = bot.syncSend(newMsg)
 			}
 		case update.FromChat().IsPrivate() && isUserAuthed(update.FromChat().ID): //manage all private chats
-			user := Users[update.FromChat().ID]
-			user.adminPanelExec(bot, &update)
-			Users[update.FromChat().ID] = user
+			go func() {
+				user := Users[update.FromChat().ID]
+				user.adminPanelExec(bot, &update)
+				Users[update.FromChat().ID] = user
+			}()
 		default:
 			newMsg.Text = "Я пока еще не умею общаться так, но очень скоро научусь! дождись меня"
 			_, err = bot.syncSend(newMsg)

@@ -33,8 +33,6 @@ var initText string = `Доброго времени суток☀️🌙
 Можете обращаться ко мне за поддержкой 24\7, я буду рад помочь 🤗
 Надеюсь на нашу долгую плодотворную работу ✨`
 
-var last_user_up time.Time = time.Now()
-
 func isOffsetChat(title string) bool {
 	status, _ := regexp.MatchString(`OF(\d{3}-\d{1,2})|OF(\d{3})`, title)
 	return status
@@ -56,7 +54,8 @@ func genReplyForMsgKeyboard(buttons ...string) []tgbotapi.KeyboardButton {
 func sendAdminErroMsg(bot *syncBot, text string) {
 	admin_id, err := strconv.Atoi(os.Getenv("ADMIN_ID"))
 	if err != nil || admin_id == 0 {
-		log.Fatalf("Admin telegram chat id is false")
+		log.Println("Admin telegram chat id is false")
+		return
 	}
 	var newMsg tgbotapi.MessageConfig
 	newMsg.ChatID = int64(admin_id)
@@ -178,38 +177,12 @@ func genReplyForCallback(update *tgbotapi.Update, status uint8, bot *syncBot) (r
 	return reply
 }
 
+//Syncronise Userlist with DB info every 10 minutes
 func updateUserList(botID int64) {
-	currentT := time.Now()
-	upPeriod := time.Minute * 5
-	// url := fmt.Sprintf("http://localhost:3334/user/list/%d", botID)
-	url := fmt.Sprintf("http://tg_cache:3334/user/list/%d", botID)
-
-	if currentT.After(last_user_up) {
-		last_user_up = time.Now().Add(upPeriod)
-		var newUsers []user
-		req, err := http.NewRequest(http.MethodGet, url, nil)
+	for {
+		newUsers, err := getUsersForBot(botID)
 		if err != nil {
-			log.Println(err.Error())
-			return
-		}
-		req.Header.Add("Content-Type", "application/json")
-		response, err := http.DefaultClient.Do(req)
-
-		if err != nil || response.StatusCode != 200 {
-			if err != nil {
-				log.Println(err.Error())
-			}
-			return
-		}
-		defer response.Body.Close()
-		responseBody, err := ioutil.ReadAll(response.Body)
-		if err != nil {
-			log.Println(err.Error())
-			return
-		}
-		err = json.Unmarshal(responseBody, &newUsers)
-		if err != nil {
-			log.Println(err.Error())
+			log.Println(err)
 			return
 		}
 		upUsers := make(map[int64]user)
@@ -220,10 +193,8 @@ func updateUserList(botID int64) {
 			}
 			upUsers[u.User_id] = u
 		}
-		for k := range Users {
-			delete(Users, k)
-		}
 		Users = upUsers
+		time.Sleep(time.Minute * 10)
 	}
 }
 
@@ -246,6 +217,28 @@ func getChatsForBot(botID int64) (chats []chat, err error) {
 		return
 	}
 	return chats, nil
+}
+
+func getUsersForBot(botID int64) (users []user, err error) {
+	// url := fmt.Sprintf("http://localhost:3334/user/list/%d", botID)
+	url := fmt.Sprintf("http://tg_cache:3334/user/list/%d", botID)
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		log.Println(err.Error())
+		return
+	}
+	req.Header.Add("Content-Type", "application/json")
+	response, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return
+	}
+	defer response.Body.Close()
+	responseBody, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return
+	}
+	err = json.Unmarshal(responseBody, &users)
+	return
 }
 
 func isNil(i interface{}) bool {
@@ -277,6 +270,8 @@ func getDepartment(title string) (dep string) {
 	return "ОЗ"
 }
 
+/*Checking report lifetime, if it is not beeing closed for 30 minutes, it's being closed automaticaly
+checks lifetime every 3 minutes*/
 func reportsManager() {
 	for {
 		repList.mutex.Lock()
