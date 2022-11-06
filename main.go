@@ -4,6 +4,7 @@ import (
 	"log"
 	"offset-adm-bot/bitrix"
 	"os"
+	"sync"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
@@ -40,14 +41,14 @@ func main() {
 	var err error
 	bot := newSyncBot()
 	updates := bot.Init()
+	userMutex := new(sync.Mutex)
 	go reportsManager()
-	go updateUserList(bot.Self.ID)
+	go updateUserList(bot.Self.ID, userMutex)
 	for update := range updates {
 		if update.Message == nil &&
 			update.CallbackQuery == nil {
 			continue
 		}
-		updateUserList(bot.Self.ID)
 		var newMsg tgbotapi.MessageConfig
 		newMsg.ChatID = update.FromChat().ID
 		isChat := isOffsetChat(update.FromChat().Title)
@@ -71,11 +72,13 @@ func main() {
 				_, err = bot.syncSend(newMsg)
 			}
 		case update.FromChat().IsPrivate() && isUserAuthed(update.FromChat().ID): //manage all private chats
-			go func() {
+			go func(m *sync.Mutex) {
+				m.Lock()
 				user := Users[update.FromChat().ID]
+				m.Unlock()
 				user.adminPanelExec(bot, &update)
 				Users[update.FromChat().ID] = user
-			}()
+			}(userMutex)
 		default:
 			newMsg.Text = "Я пока еще не умею общаться так, но очень скоро научусь! дождись меня"
 			_, err = bot.syncSend(newMsg)

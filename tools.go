@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -178,12 +179,16 @@ func genReplyForCallback(update *tgbotapi.Update, status uint8, bot *syncBot) (r
 }
 
 //Syncronise Userlist with DB info every 10 minutes
-func updateUserList(botID int64) {
+func updateUserList(botID int64, mutex *sync.Mutex) {
+	upTime := time.Minute * 10
 	for {
+		mutex.Lock()
 		newUsers, err := getUsersForBot(botID)
 		if err != nil {
 			log.Println(err)
-			return
+			mutex.Unlock()
+			time.Sleep(upTime)
+			continue
 		}
 		upUsers := make(map[int64]user)
 		for _, u := range newUsers {
@@ -194,7 +199,8 @@ func updateUserList(botID int64) {
 			upUsers[u.User_id] = u
 		}
 		Users = upUsers
-		time.Sleep(time.Minute * 10)
+		mutex.Unlock()
+		time.Sleep(upTime)
 	}
 }
 
@@ -219,12 +225,11 @@ func getChatsForBot(botID int64) (chats []chat, err error) {
 	return chats, nil
 }
 
-func getUsersForBot(botID int64) (users []user, err error) {
+func getUsersForBot(botID int64) (Users []user, err error) {
 	// url := fmt.Sprintf("http://localhost:3334/user/list/%d", botID)
 	url := fmt.Sprintf("http://tg_cache:3334/user/list/%d", botID)
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
-		log.Println(err.Error())
 		return
 	}
 	req.Header.Add("Content-Type", "application/json")
@@ -237,7 +242,11 @@ func getUsersForBot(botID int64) (users []user, err error) {
 	if err != nil {
 		return
 	}
-	err = json.Unmarshal(responseBody, &users)
+	if response.StatusCode != 200 {
+		err = fmt.Errorf("status code = %d\n%s", response.StatusCode, string(responseBody))
+		return
+	}
+	err = json.Unmarshal(responseBody, &Users)
 	return
 }
 
