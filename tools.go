@@ -136,11 +136,11 @@ func genReplyForMsg(update *tgbotapi.Update, status uint8) (reply tgbotapi.Messa
 	return reply
 }
 
-func NewResizeOneTimeReplyKeyboard(buttons ...string) (keyboard tgbotapi.ReplyKeyboardMarkup) {
+func NewResizeOneTimeReplyKeyboard(buttons []Button) (keyboard tgbotapi.ReplyKeyboardMarkup) {
 	row := make([]tgbotapi.KeyboardButton, 0)
 	rows := make([][]tgbotapi.KeyboardButton, 0)
 	for i, b := range buttons {
-		butt := tgbotapi.NewKeyboardButton(b)
+		butt := tgbotapi.NewKeyboardButton(b.String())
 		row = append(row, butt)
 		if (i+1)%3 == 0 {
 			rows = append(rows, row)
@@ -279,6 +279,10 @@ func getDepartment(title string) (dep string) {
 	return "ОЗ"
 }
 
+func (b Button) String() string {
+	return string(b)
+}
+
 /*Checking report lifetime, if it is not beeing closed for 30 minutes, it's being closed automaticaly
 checks lifetime every 3 minutes*/
 func reportsManager() {
@@ -292,4 +296,50 @@ func reportsManager() {
 		repList.mutex.Unlock()
 		time.Sleep(time.Minute * 3)
 	}
+}
+
+func getKeyboard(u user, b Board) (keyboard []Button) {
+	rang := u.Rang
+	dp := u.Department
+	switch rang {
+	case AdminLvl:
+		switch dp {
+		case "ОС":
+			switch b {
+			case MainMenuBoard:
+				return OSAdminMenu
+			case DistribBoard:
+				return OSDistribMenu
+			}
+		case "ОЗ":
+			switch b {
+			case MainMenuBoard:
+				return OZAdminMenu
+			case DistribBoard:
+				return OZDistribMenu
+			}
+		default:
+			switch b {
+			case MainMenuBoard:
+				return ITAdminMenu
+			case DistribBoard:
+				return ITDistribMenu
+			}
+		}
+	case SuperLvl:
+		switch b {
+		case MainMenuBoard:
+			return SuperUserMenu
+		case DistribBoard:
+			return SuperDistribMenu
+		}
+	case AnyLvl:
+		switch dp {
+		case "ОС":
+			return OSUserMenu
+		case "ОЗ":
+			return OZUserMenu
+		}
+	}
+	return
 }

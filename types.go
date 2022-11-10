@@ -7,34 +7,58 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-type state int32
+type State int32
+type Button string
+type Board int32
 
-// const (
-// 	mainMenu      = 0
-// 	distrib       = 1
-// 	distribGetMsg = 111
-// 	hello         = 2
-// )
+const ()
+
 var (
-	keyboards = map[string][]string{
-		"superUserMenu": {"Рассылка"},
-		"adminMenu":     {"Рассылка"},
-		"userMenu":      {"Привет"},
-		"distribMenu":   {message, document, photo, video, "Главное меню", "Назад"},
-	}
-	superLvl   uint8  = 0
-	adminLvl   uint8  = 1
-	anyLvl     uint8  = 2
-	message    string = "Сообщение"
-	document   string = "Документ"
-	photo      string = "Фото"
-	video      string = "Видео"
-	distrib    string = "Рассылка"
-	mainMenu   string = "Главное меню"
-	w8message  state  = 0
-	processing state  = 1
-	closed     state  = 2
+	MainMenuBoard         Board    = 0
+	DistribBoard          Board    = 1
+	DepartmentSelectBoard Board    = 2
+	SuperUserMenu         []Button = []Button{Distrib, AddUser}
+	OSAdminMenu           []Button = []Button{Distrib}
+	OZAdminMenu           []Button = []Button{Distrib}
+	ITAdminMenu           []Button = []Button{Distrib}
+	OZUserMenu            []Button = []Button{Hi}
+	OSUserMenu            []Button = []Button{Hi}
+	SuperDistribMenu      []Button = []Button{Message, Document, Photo, Video, MainMenu, Back}
+	OSDistribMenu         []Button = []Button{Message, Document, Photo, Video, MainMenu, Back}
+	ITDistribMenu         []Button = []Button{Message, Document, Photo, Video, MainMenu, Back}
+	OZDistribMenu         []Button = []Button{Message, Document, Photo, Video, MainMenu, Back}
+	ODistribMenu          []Button = []Button{Message, Document, Photo, Video, MainMenu, Back}
+	ITSelectDepMenu       []Button = []Button{OS, OZ, MainMenu}
+	OSSelectDepMenu       []Button = []Button{OS, OZ, MainMenu}
+	OZSelectDepMenu       []Button = []Button{OS, OZ, MainMenu}
+	SuperSelectDepMenu    []Button = []Button{OS, OZ, MainMenu}
+	SuperLvl              uint8    = 0
+	AdminLvl              uint8    = 1
+	AnyLvl                uint8    = 2
+	Message               Button   = "Сообщение"
+	Hi                    Button   = "Привет"
+	AddUser               Button   = "Add user"
+	Document              Button   = "Документ"
+	Photo                 Button   = "Фото"
+	Video                 Button   = "Видео"
+	Distrib               Button   = "Рассылка"
+	MainMenu              Button   = "Главное меню"
+	Back                  Button   = "Назад"
+	Stop                  Button   = "Stop"
+	OS                    Button   = "ОС"
+	OZ                    Button   = "ОЗ"
+	W8message             State    = 0
+	Processing            State    = 1
+	Closed                State    = 2
 )
+
+type UserConfig struct {
+	ID         int64
+	Firstname  string
+	Department string
+	Lastname   string
+	Rang       int32
+}
 
 type reportList struct {
 	store map[int64]report
@@ -66,43 +90,51 @@ type syncBot struct {
 type mainMenuCmd struct {
 	keyboard   tgbotapi.ReplyKeyboardMarkup
 	level      uint8 //0 - the highest level need to be executed, 2 - anyone can execute
-	name       string
+	name       Button
 	executable bool
-	state      state
+	state      State
+}
+
+type addUserCmd struct {
+	keyboard   tgbotapi.ReplyKeyboardMarkup
+	level      uint8 //0 - the highest level need to be executed, 2 - anyone can execute
+	name       Button
+	executable bool
+	state      State
 }
 
 type distribCmd struct {
 	keyboard   tgbotapi.ReplyKeyboardMarkup
 	level      uint8 //0 - the highest level need to be executed, 2 - anyone can execute
-	name       string
+	name       Button
 	executable bool
-	state      state
+	state      State
 }
 
 type backCmd struct {
 	keyboard   tgbotapi.ReplyKeyboardMarkup
 	level      uint8 //0 - the highest level need to be executed, 2 - anyone can execute
-	name       string
+	name       Button
 	executable bool
-	state      state
+	state      State
 }
 
 type unknownCmd struct {
 	keyboard   tgbotapi.ReplyKeyboardMarkup
 	level      uint8 //0 - the highest level need to be executed, 2 - anyone can execute
-	name       string
+	name       Button
 	executable bool
-	state      state
+	state      State
 }
 
 type Cmd interface {
-	init(*user, string)
+	init(*user, Button)
 	exec(*syncBot, *tgbotapi.Update) error
-	String() string
+	String() Button
 	setName(string)
 	copy() Cmd
-	getState() state
-	setState(s state)
+	getState() State
+	setState(s State)
 }
 
 type chat struct {

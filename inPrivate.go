@@ -13,7 +13,7 @@ func isUserAuthed(id int64) bool {
 
 func (u *user) adminPanelExec(bot *syncBot, update *tgbotapi.Update) {
 
-	cmd, err := u.newCmd(update.Message.Text)
+	cmd, err := u.newCmd(Button(update.Message.Text))
 	if err != nil {
 		log.Println(err)
 	}
