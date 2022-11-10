@@ -220,7 +220,7 @@ func (c *distribCmd) exec(bot *syncBot, u *tgbotapi.Update) (err error) {
 	case "stop distrib":
 		err = resend_as_distrib(bot, u)
 		if err != nil {
-			log.Fatalln(err)
+			log.Println(err)
 		}
 		msg.Text = "Рассылка оконченна"
 		msg.ReplyMarkup = NewResizeOneTimeReplyKeyboard(mainMenu)

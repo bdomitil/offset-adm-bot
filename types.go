@@ -58,9 +58,18 @@ type report struct {
 	openMsgID     int
 }
 
+type tg_chattable struct {
+	message   *tgbotapi.MessageConfig
+	photo     *tgbotapi.PhotoConfig
+	video     *tgbotapi.VideoConfig
+	location  *tgbotapi.LocationConfig
+	audio     *tgbotapi.AudioConfig
+	chattable tgbotapi.Chattable
+}
+
 type syncBot struct {
 	*tgbotapi.BotAPI
-	mutex sync.Mutex
+	mutex *sync.Mutex
 }
 
 type mainMenuCmd struct {

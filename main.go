@@ -59,7 +59,7 @@ func main() {
 				if update.CallbackQuery != nil {
 					newMsg, err = manageGroupChat(&update, bot) //manage callback queries commands
 				} else if len(update.Message.NewChatMembers) > 0 { //manage new chat members
-					newMsg, _ = manageUserEntry(bot, &update)
+					newMsg, err = manageUserEntry(bot, &update)
 				} else if update.Message != nil && len(update.Message.Text) > 0 { //manage text messages commands
 					newMsg, err = manageGroupChat(&update, bot)
 				}

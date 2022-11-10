@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -254,16 +255,53 @@ func isNil(i interface{}) bool {
 	return i == nil || reflect.ValueOf(i).IsNil()
 }
 
-func (bot *syncBot) syncSend(value tgbotapi.Chattable) (msg tgbotapi.Message, err error) {
+func newChat(c tgbotapi.Chat, bot_id int64) (Chat chat) {
+	Chat.Bot_id = bot_id
+	Chat.Chat_id = c.ID
+	Chat.Department = getDepartment(c.Title)
+	Chat.Title = c.Title
+	switch c.Type {
+	case "private":
+		Chat.Type = 1
+	default:
+		Chat.Type = 2
+	}
+	return Chat
+}
+
+func (bot *syncBot) syncSend(value tgbotapi.Chattable) (response *tgbotapi.APIResponse, err error) {
+	time.Sleep(time.Millisecond * 200)
 	bot.mutex.Lock()
-	msg, err = bot.Send(value)
-	time.Sleep(time.Millisecond * 300)
+	response, err = bot.Request(value)
+	switch response.ErrorCode {
+	case 400:
+		if response.Parameters != nil && response.Parameters.MigrateToChatID != 0 {
+			x, err1 := convChattable(value)
+			if err1 == nil {
+				bot.mutex.Unlock()
+				x.changeChatID(response.Parameters.MigrateToChatID)
+				response, err = bot.syncSend(x.getChattable())
+				bot.mutex.Lock()
+			}
+		}
+	case 403: //TODO finish this
+		if strings.Contains(response.Description, "chat was deleted") ||
+			strings.Contains(response.Description, "bot was kicked") {
+			x, err1 := convChattable(value)
+			if err1 == nil {
+				b, _ := x.getBaseChat()
+				deleteChat(chat{Bot_id: bot.Self.ID, Chat_id: b.ChatID})
+			}
+		}
+	}
 	bot.mutex.Unlock()
 	return
 }
 
 func newSyncBot() (bot *syncBot) {
-	return new(syncBot)
+	bot = new(syncBot)
+	bot.mutex = new(sync.Mutex)
+	return bot
 }
 
 func getDepartment(title string) (dep string) {
@@ -292,4 +330,138 @@ func reportsManager() {
 		repList.mutex.Unlock()
 		time.Sleep(time.Minute * 3)
 	}
+}
+
+func saveChat(Chat chat) (err error) {
+	url := "http://tg_cache:3334/chat/add/"
+	// url := "http://localhost:3334/chat/add/"
+	js, err := json.Marshal(Chat)
+	if err != nil {
+		return err
+	}
+	request, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(js))
+	if err != nil {
+		return err
+	}
+	request.Header.Add("Content-Type", "application/json")
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+	resText, err := ioutil.ReadAll(request.Body)
+	if err != nil {
+		return err
+	}
+	if response.StatusCode != 200 {
+		return errors.New(string(resText))
+	}
+	return nil
+}
+
+func convChattable(c tgbotapi.Chattable) (ret tg_chattable, err error) {
+	if x, ok := c.(tgbotapi.MessageConfig); ok {
+		ret.message = &x
+		ret.chattable = x
+		return
+	} else if x, ok := c.(tgbotapi.AudioConfig); ok {
+		ret.audio = &x
+		ret.chattable = x
+		return
+	} else if x, ok := c.(tgbotapi.LocationConfig); ok {
+		ret.location = &x
+		ret.chattable = x
+		return
+	} else if x, ok := c.(tgbotapi.PhotoConfig); ok {
+		ret.photo = &x
+		ret.chattable = x
+		return
+	} else if x, ok := c.(tgbotapi.VideoConfig); ok {
+		ret.video = &x
+		ret.chattable = x
+		return
+	} else {
+		return ret, errors.New("error converting")
+	}
+}
+
+func (x *tg_chattable) getBaseChat() (Chat tgbotapi.BaseChat, err error) {
+	switch {
+	case x.audio != nil:
+		Chat = x.audio.BaseChat
+	case x.location != nil:
+		Chat = x.location.BaseChat
+	case x.message != nil:
+		Chat = x.message.BaseChat
+	case x.photo != nil:
+		Chat = x.photo.BaseChat
+	case x.video != nil:
+		Chat = x.video.BaseChat
+	default:
+		return Chat, errors.New("error")
+	}
+	return
+}
+
+func (x *tg_chattable) changeChatID(id int64) (Chat tgbotapi.BaseChat, err error) {
+	switch {
+	case x.audio != nil:
+		x.audio.ChatID = id
+		x.chattable = x.audio
+	case x.location != nil:
+		x.location.ChatID = id
+		x.chattable = x.location
+	case x.message != nil:
+		x.message.ChatID = id
+		x.chattable = x.message
+	case x.photo != nil:
+		x.photo.ChatID = id
+		x.chattable = x.photo
+	case x.video != nil:
+		x.video.ChatID = id
+		x.chattable = x.video
+	default:
+		return Chat, errors.New("error")
+	}
+	return
+}
+
+func (x *tg_chattable) getChattable() (ch tgbotapi.Chattable) {
+	switch {
+	case x.audio != nil:
+		return *x.audio
+	case x.location != nil:
+		return *x.location
+	case x.message != nil:
+		return *x.message
+	case x.photo != nil:
+		return *x.photo
+	case x.video != nil:
+		return *x.video
+	default:
+		return nil
+	}
+}
+
+func deleteChat(Chat chat) error {
+	url := fmt.Sprintf("http://tg_cache:3334/chat/%d/%d", Chat.Bot_id, Chat.Chat_id)
+	// url := fmt.Sprintf("http://localhost:3334/chat/%d/%d", Chat.Bot_id, Chat.Chat_id)
+	request, err := http.NewRequest(http.MethodDelete, url, nil)
+	if err != nil {
+		return err
+	}
+	request.Header.Add("Content-Type", "application/json")
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+	resText, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return err
+	}
+	if response.StatusCode != 200 {
+		return errors.New(string(resText))
+	}
+	return nil
 }
