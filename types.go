@@ -10,8 +10,10 @@ import (
 type State int32
 type Button string
 type Board int32
-
-const ()
+type UserList struct {
+	store map[int64]*user
+	mutex *sync.Mutex
+}
 
 var (
 	MainMenuBoard         Board    = 0
@@ -53,7 +55,8 @@ var (
 )
 
 type UserConfig struct {
-	ID         int64
+	User_id    int64
+	Bot_id     int64
 	Firstname  string
 	Department string
 	Lastname   string
@@ -82,9 +85,18 @@ type report struct {
 	openMsgID     int
 }
 
+type tg_chattable struct {
+	message   *tgbotapi.MessageConfig
+	photo     *tgbotapi.PhotoConfig
+	video     *tgbotapi.VideoConfig
+	location  *tgbotapi.LocationConfig
+	audio     *tgbotapi.AudioConfig
+	chattable tgbotapi.Chattable
+}
+
 type syncBot struct {
 	*tgbotapi.BotAPI
-	mutex sync.Mutex
+	mutex *sync.Mutex
 }
 
 type mainMenuCmd struct {
@@ -129,12 +141,13 @@ type unknownCmd struct {
 
 type Cmd interface {
 	init(*user, Button)
-	exec(*syncBot, *tgbotapi.Update) error
-	String() Button
+	exec(*syncBot, tgbotapi.Update) error
+	String() string
 	setName(string)
 	copy() Cmd
 	getState() State
 	setState(s State)
+	button()Button
 }
 
 type chat struct {
@@ -154,6 +167,7 @@ type user struct {
 	Department string `json:"department" gorm:"column:department"`
 	prevCmd    Cmd
 	cmd        Cmd
+	mutex      *sync.Mutex
 }
 
 type callbackJSON struct {

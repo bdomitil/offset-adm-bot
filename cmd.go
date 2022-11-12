@@ -1,7 +1,13 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io/ioutil"
 	"log"
+	"net/http"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
@@ -17,37 +23,44 @@ func (c *addUserCmd) init(u *user, cmd Button) {
 	c.state = Processing
 }
 
-func (c *addUserCmd) exec(bot *syncBot, u *tgbotapi.Update) (err error) {
+func (c *addUserCmd) exec(bot *syncBot, u tgbotapi.Update) (err error) {
 	var msg tgbotapi.MessageConfig
 	msg.ChatID = u.Message.From.ID
+	User, _ := Users.PopUser(u.SentFrom().ID)
 	switch c.name {
 	case AddUser:
-		msg.ReplyMarkup = NewResizeOneTimeReplyKeyboard(getKeyboard(Users[u.FromChat().ID], DepartmentSelectBoard))
+		msg.ReplyMarkup = NewResizeOneTimeReplyKeyboard(getKeyboard(*User, DepartmentSelectBoard))
 		msg.Text = "Выберите отдел пользователя"
 	case OS:
-		msg.Text = "Пожалуйста отправьте профиль пользователя" + OS.String()
-		msg.ReplyMarkup = NewResizeOneTimeReplyKeyboard(getKeyboard(Users[u.FromChat().ID], MainMenuBoard))
+		msg.Text = "Пожалуйста отправьте профиль пользователя из " + OS.String()
+		msg.ReplyMarkup = NewResizeOneTimeReplyKeyboard(getKeyboard(*User, MainMenuBoard))
 		c.state = W8message
 	case OZ:
 		msg.Text = "Пожалуйста отправьте профиль пользователя из " + OZ.String()
-		msg.ReplyMarkup = NewResizeOneTimeReplyKeyboard(getKeyboard(Users[u.FromChat().ID], MainMenuBoard))
+		msg.ReplyMarkup = NewResizeOneTimeReplyKeyboard(getKeyboard(*User, MainMenuBoard))
 		c.state = W8message
 	case Stop:
-		msg.ReplyMarkup = NewResizeOneTimeReplyKeyboard(getKeyboard(Users[u.FromChat().ID], MainMenuBoard))
+		msg.ReplyMarkup = NewResizeOneTimeReplyKeyboard(getKeyboard(*User, MainMenuBoard))
 		c.state = Closed
-		err = addUser(UserConfig{
-			ID:         u.Message.Contact.UserID,
+		err = addUser(user{
+			User_id:    u.Message.Contact.UserID,
+			Bot_id:     bot.Self.ID,
 			Firstname:  u.Message.Contact.FirstName,
-			Lastname:   u.Message.Contact.LastName,
-			Department: Users[u.FromChat().ID].prevCmd.String().String(),
-			Rang:       int32(AdminLvl),
+			Rang:       AdminLvl,
+			Department: User.prevCmd.String(),
 		})
+		if err != nil {
+			msg.Text = err.Error()
+		} else {
+			msg.Text = fmt.Sprintf("Пользователь %s успешно добавлен", u.Message.Contact.FirstName)
+		}
 	}
+	_, err = bot.syncSend(msg)
 	return
 }
 
-func (c *addUserCmd) String() (name Button) {
-	return c.name
+func (c *addUserCmd) String() string {
+	return string(c.name)
 }
 
 func (c *addUserCmd) setName(n string) {
@@ -60,6 +73,7 @@ func (c *addUserCmd) copy() (copy Cmd) {
 	cp.executable = c.executable
 	cp.keyboard = c.keyboard
 	cp.state = c.state
+	cp.name = c.name
 	return cp
 }
 
@@ -103,9 +117,9 @@ func (c *backCmd) init(u *user, cmd Button) {
 	c.state = Processing
 }
 
-func (c *unknownCmd) exec(bot *syncBot, u *tgbotapi.Update) (err error) {
+func (c *unknownCmd) exec(bot *syncBot, u tgbotapi.Update) (err error) {
 	var msg tgbotapi.MessageConfig
-	msg.ChatID = u.FromChat().ID
+	msg.ChatID = u.SentFrom().ID
 	msg.Text = "Неизвестная команда"
 	msg.ReplyMarkup = c.keyboard
 	_, err = bot.syncSend(msg)
@@ -113,19 +127,19 @@ func (c *unknownCmd) exec(bot *syncBot, u *tgbotapi.Update) (err error) {
 	return
 }
 
-func (c *mainMenuCmd) exec(bot *syncBot, u *tgbotapi.Update) (err error) {
+func (c *mainMenuCmd) exec(bot *syncBot, u tgbotapi.Update) (err error) {
 	var msg tgbotapi.MessageConfig
-	msg.ChatID = u.FromChat().ID
+	msg.ChatID = u.SentFrom().ID
 	msg.Text = MainMenu.String()
 	msg.ReplyMarkup = c.keyboard
 	_, err = bot.syncSend(msg)
 	c.state = Processing
 	return
 }
-func (c *backCmd) exec(bot *syncBot, u *tgbotapi.Update) (err error) {
+func (c *backCmd) exec(bot *syncBot, u tgbotapi.Update) (err error) {
 
 	var msg tgbotapi.MessageConfig
-	msg.ChatID = u.FromChat().ID
+	msg.ChatID = u.SentFrom().ID
 	c.state = Processing
 	msg.Text = "Назад"
 	// if
@@ -218,12 +232,16 @@ func (c *distribCmd) setState(s State) {
 	c.state = s
 }
 
-func resend_as_distrib(bot *syncBot, u *tgbotapi.Update) (err error) {
+func resend_as_distrib(bot *syncBot, u tgbotapi.Update) (err error) {
 	chats, err := getChatsForBot(bot.Self.ID)
+	user, _ := Users.PopUser(u.SentFrom().ID)
 	if err != nil {
 		return
 	}
 	for _, c := range chats {
+		if user.Department != c.Department {
+			continue
+		}
 		var chattable tgbotapi.Chattable
 		switch {
 		case u.Message.Document != nil:
@@ -243,62 +261,78 @@ func resend_as_distrib(bot *syncBot, u *tgbotapi.Update) (err error) {
 	return
 }
 
-func (c *distribCmd) exec(bot *syncBot, u *tgbotapi.Update) (err error) {
+func (c *distribCmd) exec(bot *syncBot, u tgbotapi.Update) (err error) {
 	var msg tgbotapi.MessageConfig
-	msg.ChatID = u.FromChat().ID
-
+	msg.ChatID = u.SentFrom().ID
+	user, _ := Users.PopUser(u.SentFrom().ID)
 	switch c.name {
 	case Distrib:
 		msg.Text = "Пожалуйста выберите тип сообщение для массовой рассылки"
-		msg.ReplyMarkup = c.keyboard
+		c.keyboard = NewResizeOneTimeReplyKeyboard(getKeyboard(*user, DistribBoard))
 		c.state = Processing
 	case Photo:
 		msg.Text = "Пожалуйста отправьте мне фото без ТЕКСТА К НЕМУ!"
-		c.keyboard = NewResizeOneTimeReplyKeyboard(getKeyboard(Users[u.SentFrom().ID], MainMenuBoard))
+		c.keyboard = NewResizeOneTimeReplyKeyboard(getKeyboard(*user, MainMenuBoard))
 		c.state = W8message
 	case Document:
 		msg.Text = "Пожалуйста отправьте мне докумен без ТЕКСТА К НЕМУ!"
-		c.keyboard = NewResizeOneTimeReplyKeyboard(getKeyboard(Users[u.SentFrom().ID], MainMenuBoard))
+		c.keyboard = NewResizeOneTimeReplyKeyboard(getKeyboard(*user, MainMenuBoard))
 		c.state = W8message
 	case Video:
 		msg.Text = "Пожалуйста отправьте мне видео без ТЕКСТА К НЕМУ!"
-		c.keyboard = NewResizeOneTimeReplyKeyboard(getKeyboard(Users[u.SentFrom().ID], MainMenuBoard))
+		c.keyboard = NewResizeOneTimeReplyKeyboard(getKeyboard(*user, MainMenuBoard))
 		c.state = W8message
 	case Message:
 		msg.Text = "Пожалуйста отправьте мне сообщение без МЕДИА файлов!"
-		c.keyboard = NewResizeOneTimeReplyKeyboard(getKeyboard(Users[u.SentFrom().ID], MainMenuBoard))
+		c.keyboard = NewResizeOneTimeReplyKeyboard(getKeyboard(*user, MainMenuBoard))
 		c.state = W8message
 	case Stop:
 		err = resend_as_distrib(bot, u)
 		if err != nil {
-			log.Fatalln(err)
-			return
+			log.Println(err)
 		}
-		msg.Text = "Рассылка оконченна"
-		c.keyboard = NewResizeOneTimeReplyKeyboard(getKeyboard(Users[u.SentFrom().ID], MainMenuBoard))
+		msg.Text = "Рассылка окончена"
+		c.keyboard = NewResizeOneTimeReplyKeyboard(getKeyboard(*user, DistribBoard))
 		c.state = Closed
 	default:
 		log.Println("unknown distr")
-		c.keyboard = NewResizeOneTimeReplyKeyboard(getKeyboard(Users[u.SentFrom().ID], MainMenuBoard))
+		c.keyboard = NewResizeOneTimeReplyKeyboard(getKeyboard(*user, MainMenuBoard))
 		c.state = Closed
 	}
+	msg.ReplyMarkup = c.keyboard
 	_, err = bot.syncSend(msg)
 	return
 }
 
-func (c *unknownCmd) String() Button {
+func (c *unknownCmd) button() Button {
+	return c.name
+}
+func (c *addUserCmd) button() Button {
+	return c.name
+}
+func (c *mainMenuCmd) button() Button {
+	return c.name
+}
+func (c *backCmd) button() Button {
+	return c.name
+}
+func (c *distribCmd) button() Button {
 	return c.name
 }
 
-func (c *distribCmd) String() Button {
-	return c.name
+func (c *unknownCmd) String() string {
+	return string(c.name)
 }
 
-func (c *mainMenuCmd) String() Button {
-	return c.name
+func (c *distribCmd) String() string {
+	return string(c.name)
 }
-func (c *backCmd) String() Button {
-	return c.name
+
+func (c *mainMenuCmd) String() string {
+	return string(c.name)
+}
+func (c *backCmd) String() string {
+	return string(c.name)
 }
 
 func (u *user) newCmd(cmd Button) (newCmd Cmd, err error) {
@@ -320,13 +354,17 @@ func (u *user) newCmd(cmd Button) (newCmd Cmd, err error) {
 			case Photo:
 				fallthrough
 			case Video:
-				if !isNil(u.prevCmd) && u.prevCmd.String() != Distrib {
+				if !isNil(u.prevCmd) && u.prevCmd.button() != Distrib {
 					newCmd = new(unknownCmd)
 					break
 				}
 				fallthrough
 			case Distrib:
 				newCmd = new(distribCmd)
+			case OS:
+				fallthrough
+			case OZ:
+				fallthrough
 			case AddUser:
 				newCmd = new(addUserCmd)
 			default:
@@ -351,7 +389,25 @@ func (u *user) newCmd(cmd Button) (newCmd Cmd, err error) {
 	return newCmd, nil
 }
 
-func addUser(conf UserConfig) (err error) {
-
+func addUser(User user) (err error) {
+	// url := "http://localhost:3334/user/add"
+	url := "http://tg_cache:3334/user/add"
+	data, err := json.Marshal(User)
+	if err != nil {
+		return
+	}
+	request, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(data))
+	if err != nil {
+		return
+	}
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		return
+	}
+	defer response.Body.Close()
+	if response.StatusCode != 200 {
+		res, _ := ioutil.ReadAll(response.Body)
+		err = errors.New(string(res))
+	}
 	return
 }
