@@ -137,11 +137,11 @@ func genReplyForMsg(update *tgbotapi.Update, status uint8) (reply tgbotapi.Messa
 	return reply
 }
 
-func NewResizeOneTimeReplyKeyboard(buttons ...string) (keyboard tgbotapi.ReplyKeyboardMarkup) {
+func NewResizeOneTimeReplyKeyboard(buttons []Button) (keyboard tgbotapi.ReplyKeyboardMarkup) {
 	row := make([]tgbotapi.KeyboardButton, 0)
 	rows := make([][]tgbotapi.KeyboardButton, 0)
 	for i, b := range buttons {
-		butt := tgbotapi.NewKeyboardButton(b)
+		butt := tgbotapi.NewKeyboardButton(b.String())
 		row = append(row, butt)
 		if (i+1)%3 == 0 {
 			rows = append(rows, row)
@@ -179,35 +179,56 @@ func genReplyForCallback(update *tgbotapi.Update, status uint8, bot *syncBot) (r
 	return reply
 }
 
+func (list *UserList) PopUser(id int64) (User *user, f bool) {
+	store := list.PopStore()
+	User, ok := store[id]
+	list.UnlockStore()
+
+	return User, ok
+}
+
+func (list *UserList) PushUser(User *user) {
+	store := list.PopStore()
+	store[User.User_id] = User
+	list.UnlockStore()
+}
+
 //Syncronise Userlist with DB info every 10 minutes
-func updateUserList(botID int64, mutex *sync.Mutex) {
-	upTime := time.Minute * 10
+func updateUserList(botID int64) {
+	// upTime := time.Minute * 10
+	upTime := time.Second * 123
 	for {
-		mutex.Lock()
+		store := Users.PopStore()
 		newUsers, err := getUsersForBot(botID)
 		if err != nil {
 			log.Println(err)
-			mutex.Unlock()
+			Users.UnlockStore()
 			time.Sleep(upTime)
 			continue
 		}
-		upUsers := make(map[int64]user)
+		upUsers := make(map[int64]*user)
 		for _, u := range newUsers {
-			if _, ok := Users[u.User_id]; ok {
-				u.cmd = Users[u.User_id].cmd
-				u.prevCmd = Users[u.User_id].prevCmd
+			if user, ok := store[u.User_id]; ok {
+				u.cmd = user.cmd
+				u.prevCmd = user.prevCmd
+				u.mutex = user.mutex
+
+			} else {
+				u.mutex = new(sync.Mutex)
 			}
-			upUsers[u.User_id] = u
+			tmp := u
+			upUsers[u.User_id] = &tmp
 		}
-		Users = upUsers
-		mutex.Unlock()
+		Users.PushStore(upUsers)
+		Users.UnlockStore()
 		time.Sleep(upTime)
 	}
 }
 
 func getChatsForBot(botID int64) (chats []chat, err error) {
-	resp, err := http.Get(fmt.Sprintf("http://tg_cache:3334/chat/list/%d", botID)) //TODO change to config parse
-	// resp, err := http.Get(fmt.Sprintf("http://localhost:3334/chat/list/%d", botID)) //TODO change to config parse
+	url := fmt.Sprintf("http://tg_cache:3334/chat/list/%d", botID)
+	// url := fmt.Sprintf("http://localhost:3334/chat/list/%d", botID)
+	resp, err := http.Get(url) //TODO change to config parse
 	if err != nil {
 		return
 	}
@@ -315,6 +336,10 @@ func getDepartment(title string) (dep string) {
 		return "ОС"
 	}
 	return "ОЗ"
+}
+
+func (b Button) String() string {
+	return string(b)
 }
 
 /*Checking report lifetime, if it is not beeing closed for 30 minutes, it's being closed automaticaly
@@ -464,4 +489,81 @@ func deleteChat(Chat chat) error {
 		return errors.New(string(resText))
 	}
 	return nil
+}
+
+func getKeyboard(u user, board Board) (keyboard []Button) {
+	switch u.Rang {
+	case AdminLvl:
+		switch u.Department {
+		case OS.String():
+			switch board {
+			case MainMenuBoard:
+				return OSAdminMenu
+			case DistribBoard:
+				return OSDistribMenu
+			case DepartmentSelectBoard:
+				return OSSelectDepMenu
+			}
+		case OZ.String():
+			switch board {
+			case MainMenuBoard:
+				return OZAdminMenu
+			case DistribBoard:
+				return OZDistribMenu
+			case DepartmentSelectBoard:
+				return OZSelectDepMenu
+			}
+		default:
+			switch board {
+			case MainMenuBoard:
+				log.Println("supe")
+				return ITAdminMenu
+			case DistribBoard:
+				return ITDistribMenu
+			case DepartmentSelectBoard:
+				return ITSelectDepMenu
+			}
+		}
+	case SuperLvl:
+		switch board {
+		case MainMenuBoard:
+			return SuperUserMenu
+		case DistribBoard:
+			return SuperDistribMenu
+		case DepartmentSelectBoard:
+			return SuperSelectDepMenu
+		}
+	case AnyLvl:
+		switch u.Department {
+		case OS.String():
+			return OSUserMenu
+		case OZ.String():
+			return OZUserMenu
+		}
+	}
+	return
+}
+
+/*Once pop is called, mutex getting locked,
+don't forget to unlock
+*/
+func (list *UserList) PopStore() map[int64]*user {
+	list.mutex.Lock()
+	return list.store
+}
+
+func (list *UserList) PushStore(newSt map[int64]*user) {
+	list.store = newSt
+}
+
+func (list *UserList) UnlockStore() {
+	list.mutex.Unlock()
+}
+
+func (User *user) Block() {
+	User.mutex.Lock()
+}
+
+func (User *user) Unblock() {
+	User.mutex.Unlock()
 }
