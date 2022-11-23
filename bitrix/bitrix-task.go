@@ -2,15 +2,14 @@ package bitrix
 
 import (
 	"encoding/json"
-	"log"
 )
 
-func Task_add(task *Task) error {
+func Task_add(task *Task) (err error) {
 
 	jsonData, _ := json.Marshal(task)
-	response, err := Exec_api(api_url+"/tasks.task.add.json", jsonData)
+	_, err = Exec_api(api_url+"/tasks.task.add.json", jsonData)
 	if err != nil {
-		log.Printf("%s\n", string(response))
+		return
 	}
 	return nil
 }

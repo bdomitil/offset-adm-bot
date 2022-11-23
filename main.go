@@ -38,10 +38,12 @@ func (b *syncBot) Init() (updates tgbotapi.UpdatesChannel) {
 }
 
 func main() {
+	log.SetFlags(log.Ldate | log.Lmsgprefix | log.Lshortfile)
 	bot := newSyncBot()
 	updates := bot.Init()
 	go reportsManager()
 	go updateUserList(bot.Self.ID)
+	go updateChats(bot, bot.Self.ID)
 	for update := range updates {
 		if update.Message == nil &&
 			update.CallbackQuery == nil {

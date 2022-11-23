@@ -195,8 +195,7 @@ func (list *UserList) PushUser(User *user) {
 
 //Syncronise Userlist with DB info every 10 minutes
 func updateUserList(botID int64) {
-	// upTime := time.Minute * 10
-	upTime := time.Second * 123
+	upTime := time.Minute * 10
 	for {
 		store := Users.PopStore()
 		newUsers, err := getUsersForBot(botID)
@@ -225,9 +224,41 @@ func updateUserList(botID int64) {
 	}
 }
 
+func updateChats(bot *syncBot, botID int64) {
+
+	for {
+		chats, err := getChatsForBot(botID)
+		if err == nil {
+			for i, c := range chats {
+				updateChatInfo(bot, c.Chat_id, &c)
+				chats[i] = c
+			}
+		} else {
+			log.Println(err)
+		}
+		time.Sleep(time.Minute * 10)
+	}
+}
+
+func updateChatInfo(bot *syncBot, chatID int64, Chat *chat) {
+	config := tgbotapi.ChatInfoConfig{}
+	config.ChatID = chatID
+	newChat, err := bot.GetChat(config)
+	if err == nil {
+		newDep := getDepartment(newChat.Title)
+		if Chat.Title != newChat.Title || Chat.Department != newDep {
+			Chat.Department = newDep
+			Chat.Title = newChat.Title
+			saveChat(*Chat)
+		}
+	} else {
+		log.Println(err)
+	}
+
+}
+
 func getChatsForBot(botID int64) (chats []chat, err error) {
 	url := fmt.Sprintf("http://tg_cache:3334/chat/list/%d", botID)
-	// url := fmt.Sprintf("http://localhost:3334/chat/list/%d", botID)
 	resp, err := http.Get(url) //TODO change to config parse
 	if err != nil {
 		return
@@ -248,7 +279,6 @@ func getChatsForBot(botID int64) (chats []chat, err error) {
 }
 
 func getUsersForBot(botID int64) (Users []user, err error) {
-	// url := fmt.Sprintf("http://localhost:3334/user/list/%d", botID)
 	url := fmt.Sprintf("http://tg_cache:3334/user/list/%d", botID)
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
@@ -299,6 +329,7 @@ func (bot *syncBot) syncSend(value tgbotapi.Chattable) (response *tgbotapi.APIRe
 		if response.Parameters != nil && response.Parameters.MigrateToChatID != 0 {
 			x, err1 := convChattable(value)
 			if err1 == nil {
+				updateChatID(x.getBaseChat().ChatID, response.Parameters.MigrateToChatID, bot)
 				bot.mutex.Unlock()
 				x.changeChatID(response.Parameters.MigrateToChatID)
 				response, err = bot.syncSend(x.getChattable())
@@ -310,7 +341,7 @@ func (bot *syncBot) syncSend(value tgbotapi.Chattable) (response *tgbotapi.APIRe
 			strings.Contains(response.Description, "bot was kicked") {
 			x, err1 := convChattable(value)
 			if err1 == nil {
-				b, _ := x.getBaseChat()
+				b := x.getBaseChat()
 				deleteChat(chat{Bot_id: bot.Self.ID, Chat_id: b.ChatID})
 			}
 		}
@@ -359,7 +390,6 @@ func reportsManager() {
 
 func saveChat(Chat chat) (err error) {
 	url := "http://tg_cache:3334/chat/add/"
-	// url := "http://localhost:3334/chat/add/"
 	js, err := json.Marshal(Chat)
 	if err != nil {
 		return err
@@ -410,7 +440,7 @@ func convChattable(c tgbotapi.Chattable) (ret tg_chattable, err error) {
 	}
 }
 
-func (x *tg_chattable) getBaseChat() (Chat tgbotapi.BaseChat, err error) {
+func (x *tg_chattable) getBaseChat() (Chat tgbotapi.BaseChat) {
 	switch {
 	case x.audio != nil:
 		Chat = x.audio.BaseChat
@@ -423,7 +453,7 @@ func (x *tg_chattable) getBaseChat() (Chat tgbotapi.BaseChat, err error) {
 	case x.video != nil:
 		Chat = x.video.BaseChat
 	default:
-		return Chat, errors.New("error")
+		return Chat
 	}
 	return
 }
@@ -470,7 +500,6 @@ func (x *tg_chattable) getChattable() (ch tgbotapi.Chattable) {
 
 func deleteChat(Chat chat) error {
 	url := fmt.Sprintf("http://tg_cache:3334/chat/%d/%d", Chat.Bot_id, Chat.Chat_id)
-	// url := fmt.Sprintf("http://localhost:3334/chat/%d/%d", Chat.Bot_id, Chat.Chat_id)
 	request, err := http.NewRequest(http.MethodDelete, url, nil)
 	if err != nil {
 		return err
@@ -566,4 +595,49 @@ func (User *user) Block() {
 
 func (User *user) Unblock() {
 	User.mutex.Unlock()
+}
+
+func updateChatID(oldID, newID int64, bot *syncBot) {
+	config := tgbotapi.ChatInfoConfig{}
+	config.ChatID = newID
+	NewTgChat, err := bot.GetChat(config)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	config.ChatID = oldID
+	OldTgChat, err := bot.GetChat(config)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	err = deleteChat(newChat(OldTgChat, bot.Self.ID))
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	newC := newChat(NewTgChat, bot.Self.ID)
+	saveChat(newC)
+}
+
+func saveUser(User user) (err error) {
+	url := "http://tg_cache:3334/user/add"
+	data, err := json.Marshal(User)
+	if err != nil {
+		return
+	}
+	request, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(data))
+	if err != nil {
+		return
+	}
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		return
+	}
+	defer response.Body.Close()
+	if response.StatusCode != 200 {
+		res, _ := ioutil.ReadAll(response.Body)
+		err = errors.New(string(res))
+	}
+	return
 }

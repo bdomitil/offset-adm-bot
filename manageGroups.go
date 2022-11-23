@@ -32,7 +32,9 @@ func inGroupChat(bot *syncBot, update tgbotapi.Update) {
 			log.Println(err)
 			return
 		}
-		_, err = bot.syncSend(newMsg)
+		if newMsg.Text != "" {
+			_, err = bot.syncSend(newMsg)
+		}
 		if err != nil {
 			log.Println(err)
 		}
