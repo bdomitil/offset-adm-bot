@@ -3,6 +3,7 @@ package bitrix
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -31,6 +32,8 @@ func Exec_api(url string, jsonData []byte) ([]byte, error) {
 	responseBody, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		return nil, err
+	} else if strings.Contains(string(responseBody), "error") {
+		return responseBody, fmt.Errorf("%s", string(responseBody))
 	}
 	return responseBody, nil
 

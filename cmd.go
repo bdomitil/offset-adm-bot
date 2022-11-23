@@ -1,13 +1,8 @@
 package main
 
 import (
-	"bytes"
-	"encoding/json"
-	"errors"
 	"fmt"
-	"io/ioutil"
 	"log"
-	"net/http"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
@@ -42,13 +37,7 @@ func (c *addUserCmd) exec(bot *syncBot, u tgbotapi.Update) (err error) {
 	case Stop:
 		msg.ReplyMarkup = NewResizeOneTimeReplyKeyboard(getKeyboard(*User, MainMenuBoard))
 		c.state = Closed
-		err = addUser(user{
-			User_id:    u.Message.Contact.UserID,
-			Bot_id:     bot.Self.ID,
-			Firstname:  u.Message.Contact.FirstName,
-			Rang:       AdminLvl,
-			Department: User.prevCmd.String(),
-		})
+		err = addUser(u, bot, User.prevCmd.String())
 		if err != nil {
 			msg.Text = err.Error()
 		} else {
@@ -239,7 +228,7 @@ func resend_as_distrib(bot *syncBot, u tgbotapi.Update) (err error) {
 		return
 	}
 	for _, c := range chats {
-		if user.Department != c.Department {
+		if user.Department != c.Department && user.Department != "ИТ" {
 			continue
 		}
 		var chattable tgbotapi.Chattable
@@ -389,25 +378,30 @@ func (u *user) newCmd(cmd Button) (newCmd Cmd, err error) {
 	return newCmd, nil
 }
 
-func addUser(User user) (err error) {
-	// url := "http://localhost:3334/user/add"
-	url := "http://tg_cache:3334/user/add"
-	data, err := json.Marshal(User)
+func addUser(update tgbotapi.Update, bot *syncBot, dep string) (err error) {
+
+	member, err := getChatMember(update.FromChat().ID, update.Message.Contact.UserID, bot)
 	if err != nil {
 		return
 	}
-	request, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(data))
+	User := user{
+		User_id:    member.User.ID,
+		Bot_id:     bot.Self.ID,
+		Firstname:  member.User.FirstName,
+		Rang:       AdminLvl, //TODO Hardcoded
+		Department: dep,
+		Username:   member.User.UserName,
+	}
+	return saveUser(User)
+}
+
+func getChatMember(ChatID, UserID int64, bot *syncBot) (member tgbotapi.ChatMember, err error) {
+	cf := tgbotapi.GetChatMemberConfig{}
+	cf.UserID = UserID
+	cf.ChatID = ChatID
+	member, err = bot.GetChatMember(cf)
 	if err != nil {
 		return
-	}
-	response, err := http.DefaultClient.Do(request)
-	if err != nil {
-		return
-	}
-	defer response.Body.Close()
-	if response.StatusCode != 200 {
-		res, _ := ioutil.ReadAll(response.Body)
-		err = errors.New(string(res))
 	}
 	return
 }

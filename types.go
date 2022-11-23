@@ -49,6 +49,7 @@ var (
 	Stop                  Button   = "Stop"
 	OS                    Button   = "ОС"
 	OZ                    Button   = "ОЗ"
+	Range                 Button   = "Выборочно"
 	W8message             State    = 0
 	Processing            State    = 1
 	Closed                State    = 2
@@ -147,7 +148,7 @@ type Cmd interface {
 	copy() Cmd
 	getState() State
 	setState(s State)
-	button()Button
+	button() Button
 }
 
 type chat struct {
