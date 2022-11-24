@@ -357,14 +357,10 @@ func newSyncBot() (bot *syncBot) {
 }
 
 func getDepartment(title string) (dep string) {
-	deps := strings.Split(title, " ")
-	deps1 := strings.Split(title, ".")
+	dep = regexp.MustCompile(`ОС$`).FindString(title)
 
-	if deps[len(deps)-1] == "ОС" {
-		return "ОС"
-	}
-	if deps1[len(deps1)-1] == "ОС" {
-		return "ОС"
+	if dep == "ОС"{
+		return dep
 	}
 	return "ОЗ"
 }
