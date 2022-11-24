@@ -641,3 +641,14 @@ func saveUser(User user) (err error) {
 	}
 	return
 }
+
+func (bot *syncBot) GetChat(config tgbotapi.ChatInfoConfig) (Chat tgbotapi.Chat, err error) {
+	resp, err := bot.syncSend(config)
+	if err != nil {
+		return tgbotapi.Chat{}, err
+	}
+
+	err = json.Unmarshal(resp.Result, &Chat)
+
+	return Chat, err
+}
