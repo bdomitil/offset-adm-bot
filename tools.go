@@ -229,9 +229,8 @@ func updateChats(bot *syncBot, botID int64) {
 	for {
 		chats, err := getChatsForBot(botID)
 		if err == nil {
-			for i, c := range chats {
+			for _, c := range chats {
 				updateChatInfo(bot, c.Chat_id, &c)
-				chats[i] = c
 			}
 		} else {
 			log.Println(err)
@@ -321,7 +320,7 @@ func newChat(c tgbotapi.Chat, bot_id int64) (Chat chat) {
 }
 
 func (bot *syncBot) syncSend(value tgbotapi.Chattable) (response *tgbotapi.APIResponse, err error) {
-	time.Sleep(time.Millisecond * 200)
+	time.Sleep(time.Millisecond * 700)
 	bot.mutex.Lock()
 	response, err = bot.Request(value)
 	switch response.ErrorCode {
@@ -359,7 +358,7 @@ func newSyncBot() (bot *syncBot) {
 func getDepartment(title string) (dep string) {
 	dep = regexp.MustCompile(`(ОС$)|(ОC$)|(OС$)|(OC$)`).FindString(title)
 
-	if dep == "ОС"{
+	if dep != "" {
 		return dep
 	}
 	return "ОЗ"
