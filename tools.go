@@ -359,7 +359,7 @@ func getDepartment(title string) (dep string) {
 	dep = regexp.MustCompile(`(ОС$)|(ОC$)|(OС$)|(OC$)`).FindString(title)
 
 	if dep != "" {
-		return dep
+		return "ОС"
 	}
 	return "ОЗ"
 }
